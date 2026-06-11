@@ -16,6 +16,7 @@ WORLD_W = 260
 WORLD_H = 110
 MINIMAP_W = 220
 MINIMAP_H = 92
+WORLD_SEED = random.randint(0, 9999999)
 GRAVITY = 2200
 MOVE_ACCEL = 2800
 MAX_SPEED = 360
@@ -24,6 +25,8 @@ TERMINAL_VEL = 1800
 REACH = 7 * TILE
 SAVE_FILE = "savegame.json"
 DAY_LENGTH = 220.0
+ASSET_DIR = "generated_assets"
+AUDIO_ENABLED = False
 
 
 AIR = 0
@@ -43,6 +46,8 @@ SLIME_KING = 13
 ZOMBIE = 14
 BAT = 15
 EYE = 16
+WATER = 17
+LAVA = 18
 
 BLOCK_COLORS = {
     AIR: (0, 0, 0),
@@ -62,6 +67,8 @@ BLOCK_COLORS = {
     ZOMBIE: (116, 170, 90),
     BAT: (85, 85, 105),
     EYE: (200, 80, 200),
+    WATER: (60, 120, 220),
+    LAVA: (240, 90, 40),
 }
 
 BLOCK_NAME = {
@@ -81,9 +88,12 @@ BLOCK_NAME = {
     ZOMBIE: "Zombie",
     BAT: "Bat",
     EYE: "Eye",
+    WATER: "Water",
+    LAVA: "Lava",
 }
 
 SOLID = {DIRT, STONE, GRASS, WOOD, LEAF, COAL_ORE, IRON_ORE, GOLD_ORE, SAND, WORKBENCH, CHEST}
+LIQUIDS = {WATER, LAVA}
 PLACEABLE = {DIRT, STONE, GRASS, WOOD, LEAF, TORCH, WORKBENCH, CHEST, SAND}
 MINABLE = {DIRT, STONE, GRASS, WOOD, LEAF, COAL_ORE, IRON_ORE, GOLD_ORE, SAND, WORKBENCH, CHEST}
 
@@ -237,39 +247,41 @@ class Drop:
 
 
 def new_world():
+    rnd = random.Random(WORLD_SEED)
     world = [[AIR for _ in range(WORLD_H)] for _ in range(WORLD_W)]
     surface = []
     h = WORLD_H // 2 + 8
     for x in range(WORLD_W):
-        h += random.choice([-2, -1, 0, 0, 1, 1, 2]) if x else 0
+        h += rnd.choice([-2, -1, 0, 0, 1, 1, 2]) if x else 0
         h = max(18, min(WORLD_H - 16, h))
         surface.append(h)
+        biome = "forest" if x < WORLD_W * 0.4 else "desert" if x < WORLD_W * 0.7 else "mountain"
         for y in range(h, WORLD_H):
             if y == h:
-                world[x][y] = GRASS
+                world[x][y] = SAND if biome == "desert" else GRASS
             elif y < h + 4:
-                world[x][y] = DIRT
+                world[x][y] = SAND if biome == "desert" else DIRT
             else:
                 world[x][y] = STONE
 
     for x in range(2, WORLD_W - 2):
-        if random.random() < 0.06:
-            depth = random.randint(1, 5)
+        if rnd.random() < 0.06:
+            depth = rnd.randint(1, 5)
             for y in range(surface[x] + depth, WORLD_H):
-                if y < WORLD_H - 18 or random.random() > 0.5:
+                if y < WORLD_H - 18 or rnd.random() > 0.5:
                     world[x][y] = AIR
 
     for _ in range(22):
-        cx = random.randint(10, WORLD_W - 11)
-        cy = random.randint(28, WORLD_H - 18)
-        radius = random.randint(4, 10)
-        carve_cave(world, cx, cy, radius, random.randint(24, 48))
+        cx = rnd.randint(10, WORLD_W - 11)
+        cy = rnd.randint(28, WORLD_H - 18)
+        radius = rnd.randint(4, 10)
+        carve_cave(world, cx, cy, radius, rnd.randint(24, 48))
 
     for _ in range(260):
-        x = random.randint(4, WORLD_W - 5)
-        y = random.randint(25, WORLD_H - 6)
+        x = rnd.randint(4, WORLD_W - 5)
+        y = rnd.randint(25, WORLD_H - 6)
         if world[x][y] == STONE:
-            roll = random.random()
+            roll = rnd.random()
             if roll < 0.07:
                 world[x][y] = COAL_ORE
             elif roll < 0.10:
@@ -277,17 +289,26 @@ def new_world():
             elif roll < 0.105:
                 world[x][y] = GOLD_ORE
 
+    for _ in range(8):
+        x = rnd.randint(8, WORLD_W - 8)
+        y = rnd.randint(26, WORLD_H - 10)
+        for dx in range(-3, 4):
+            for dy in range(-2, 3):
+                tx, ty = x + dx, y + dy
+                if 0 <= tx < WORLD_W and 0 <= ty < WORLD_H and world[tx][ty] == STONE:
+                    world[tx][ty] = WATER if rnd.random() < 0.7 else LAVA
+
     for _ in range(10):
-        x = random.randint(8, WORLD_W - 9)
+        x = rnd.randint(8, WORLD_W - 9)
         y = surface[x]
-        if world[x][y] == GRASS and random.random() < 0.35:
+        if world[x][y] in (GRASS, SAND) and rnd.random() < 0.35:
             world[x][y - 1] = CHEST
 
     for _ in range(22):
-        x = random.randint(8, WORLD_W - 9)
-        if 0 < surface[x] < WORLD_H - 8 and random.random() < 0.5:
+        x = rnd.randint(8, WORLD_W - 9)
+        if 0 < surface[x] < WORLD_H - 8 and rnd.random() < 0.5:
             top = surface[x]
-            trunk_h = random.randint(4, 7)
+            trunk_h = rnd.randint(4, 7)
             for i in range(1, trunk_h + 1):
                 if top - i >= 0:
                     world[x][top - i] = WOOD
@@ -301,9 +322,9 @@ def new_world():
                             world[ax][ay] = LEAF
 
     for _ in range(5):
-        x = random.randint(6, WORLD_W - 7)
+        x = rnd.randint(6, WORLD_W - 7)
         y = surface[x]
-        if random.random() < 0.4 and y + 1 < WORLD_H:
+        if rnd.random() < 0.4 and y + 1 < WORLD_H:
             world[x][y + 1] = SAND
             for dy in range(2, 6):
                 if y + dy < WORLD_H and world[x][y + dy] == DIRT:
@@ -335,7 +356,13 @@ def spawn_enemies(world, surface):
     for _ in range(16):
         x = random.randint(8, WORLD_W - 9)
         y = surface[x]
-        enemies.append(Enemy(x * TILE, (y - 1) * TILE, kind="slime"))
+        kind = "slime" if x < WORLD_W * 0.4 else "zombie" if x < WORLD_W * 0.7 else "bat"
+        if kind == "slime":
+            enemies.append(Enemy(x * TILE, (y - 1) * TILE, kind="slime"))
+        elif kind == "zombie":
+            enemies.append(Enemy(x * TILE, (y - 1) * TILE, kind="zombie", w=26, h=42, health=38))
+        else:
+            enemies.append(Enemy(x * TILE, max(6, (y - 8)) * TILE, kind="bat", w=24, h=16, health=14))
     for _ in range(6):
         x = random.randint(10, WORLD_W - 11)
         y = surface[x]
@@ -411,6 +438,209 @@ def draw_text(surface, font, text, x, y, color=(255, 255, 255)):
     surface.blit(font.render(text, True, color), (x, y))
 
 
+def make_texture(size, base, accent=None, seed=0, border=True):
+    surf = pygame.Surface((size, size), pygame.SRCALPHA)
+    surf.fill(base)
+    rnd = random.Random(seed)
+    for _ in range(max(4, size // 3)):
+        px = rnd.randrange(size)
+        py = rnd.randrange(size)
+        radius = rnd.randint(1, max(1, size // 7))
+        color = accent if accent and rnd.random() > 0.35 else tuple(max(0, min(255, c + rnd.randint(-18, 18))) for c in base)
+        pygame.draw.circle(surf, color, (px, py), radius)
+    for _ in range(max(2, size // 5)):
+        x = rnd.randrange(size)
+        pygame.draw.line(surf, tuple(max(0, min(255, c - 25)) for c in base), (x, 0), (x + rnd.randint(-1, 1), size), 1)
+    if border:
+        pygame.draw.rect(surf, (0, 0, 0, 90), (0, 0, size, size), 1)
+    return surf
+
+
+def make_liquid_texture(size, base, accent=None, seed=0):
+    surf = pygame.Surface((size, size), pygame.SRCALPHA)
+    rnd = random.Random(seed)
+    for y in range(size):
+        blend = y / max(1, size - 1)
+        c = tuple(int(base[i] * (1 - blend * 0.15) + (accent[i] if accent else base[i]) * (blend * 0.15)) for i in range(3))
+        pygame.draw.line(surf, c, (0, y), (size, y))
+    for _ in range(max(3, size // 4)):
+        px = rnd.randrange(size)
+        py = rnd.randrange(size)
+        radius = rnd.randint(1, 2)
+        pygame.draw.circle(surf, accent or (255, 255, 255), (px, py), radius)
+    pygame.draw.rect(surf, (255, 255, 255, 25), (0, 0, size, size), 1)
+    return surf
+
+
+def make_block_textures():
+    return {
+        DIRT: make_texture(TILE, (126, 87, 56), (150, 105, 66), 11),
+        STONE: make_texture(TILE, (110, 110, 122), (140, 140, 150), 12),
+        GRASS: make_texture(TILE, (75, 160, 74), (95, 190, 85), 13),
+        WOOD: make_texture(TILE, (133, 96, 60), (160, 115, 70), 14),
+        LEAF: make_texture(TILE, (58, 149, 72), (90, 180, 95), 15),
+        COAL_ORE: make_texture(TILE, (72, 72, 82), (32, 32, 34), 16),
+        IRON_ORE: make_texture(TILE, (140, 111, 90), (190, 150, 120), 17),
+        GOLD_ORE: make_texture(TILE, (185, 160, 70), (235, 210, 120), 18),
+        SAND: make_texture(TILE, (214, 198, 126), (230, 220, 155), 19),
+        TORCH: make_texture(TILE, (245, 190, 60), (255, 230, 120), 20),
+        WORKBENCH: make_texture(TILE, (151, 104, 62), (180, 124, 72), 21),
+        CHEST: make_texture(TILE, (124, 76, 43), (160, 100, 56), 22),
+    }
+
+
+def ensure_asset_dir():
+    if not os.path.exists(ASSET_DIR):
+        os.makedirs(ASSET_DIR, exist_ok=True)
+
+
+def save_texture_sheet(name, textures):
+    ensure_asset_dir()
+    sheet = pygame.Surface((TILE * len(textures), TILE), pygame.SRCALPHA)
+    for idx, tex in enumerate(textures):
+        sheet.blit(tex, (idx * TILE, 0))
+    pygame.image.save(sheet, os.path.join(ASSET_DIR, f"{name}.png"))
+
+
+def make_player_sprite():
+    surf = pygame.Surface((24, 44), pygame.SRCALPHA)
+    pygame.draw.rect(surf, (255, 216, 170), (4, 0, 16, 12), border_radius=4)
+    pygame.draw.rect(surf, (230, 190, 135), (2, 10, 20, 10), border_radius=5)
+    pygame.draw.rect(surf, (56, 92, 204), (2, 16, 20, 24), border_radius=5)
+    pygame.draw.rect(surf, (40, 60, 150), (2, 30, 20, 6), border_radius=3)
+    pygame.draw.rect(surf, (160, 105, 72), (0, 18, 4, 18), border_radius=2)
+    pygame.draw.rect(surf, (160, 105, 72), (20, 18, 4, 18), border_radius=2)
+    pygame.draw.rect(surf, (110, 72, 42), (6, 40, 6, 4), border_radius=2)
+    pygame.draw.rect(surf, (110, 72, 42), (12, 40, 6, 4), border_radius=2)
+    return surf
+
+
+def make_sword_sprite():
+    surf = pygame.Surface((36, 12), pygame.SRCALPHA)
+    pygame.draw.polygon(surf, (220, 220, 230), [(6, 1), (28, 4), (6, 7), (2, 6), (4, 3)])
+    pygame.draw.rect(surf, (170, 120, 70), (0, 4, 8, 4), border_radius=2)
+    pygame.draw.rect(surf, (110, 70, 40), (5, 2, 5, 8), border_radius=2)
+    return surf
+
+
+def make_parallax_layers():
+    far = pygame.Surface((WIDTH * 2, HEIGHT // 2), pygame.SRCALPHA)
+    mid = pygame.Surface((WIDTH * 2, HEIGHT // 2), pygame.SRCALPHA)
+    for x in range(0, far.get_width(), 120):
+        h = random.randint(20, 70)
+        pygame.draw.polygon(far, (55, 90, 140), [(x, far.get_height()), (x + 40, far.get_height() - h), (x + 90, far.get_height())])
+    for x in range(0, mid.get_width(), 80):
+        h = random.randint(35, 120)
+        pygame.draw.polygon(mid, (80, 120, 80), [(x, mid.get_height()), (x + 30, mid.get_height() - h), (x + 65, mid.get_height())])
+    return far, mid
+
+
+def make_sound(freq=440, duration=0.12, volume=0.35, wave="sine"):
+    try:
+        import numpy as np
+    except Exception:
+        return None
+    sample_rate = 44100
+    samples = int(duration * sample_rate)
+    t = np.linspace(0, duration, samples, False)
+    if wave == "square":
+        audio = np.sign(np.sin(freq * t * 2 * np.pi))
+    elif wave == "triangle":
+        audio = 2 * np.arcsin(np.sin(freq * t * 2 * np.pi)) / np.pi
+    else:
+        audio = np.sin(freq * t * 2 * np.pi)
+    envelope = np.linspace(1.0, 0.0, samples)
+    audio = (audio * envelope * volume * 32767).astype(np.int16)
+    stereo = np.column_stack((audio, audio))
+    return pygame.sndarray.make_sound(stereo)
+
+
+def make_audio():
+    sounds = {
+        "mine": make_sound(220, 0.05, 0.2),
+        "place": make_sound(330, 0.05, 0.18),
+        "swing": make_sound(520, 0.06, 0.16),
+        "hit": make_sound(140, 0.08, 0.25, "square"),
+        "craft": make_sound(660, 0.12, 0.2),
+        "pickup": make_sound(880, 0.05, 0.12),
+        "boss": make_sound(90, 0.18, 0.25, "square"),
+        "music_forest": make_sound(220, 1.2, 0.035, "triangle"),
+        "music_desert": make_sound(176, 1.2, 0.03, "sine"),
+        "music_cave": make_sound(110, 1.4, 0.04, "square"),
+        "music_boss": make_sound(88, 1.4, 0.05, "square"),
+    }
+    return sounds
+
+
+def make_enemy_sprite(kind, boss=False):
+    if kind == "slime" or kind == "slime_king":
+        surf = pygame.Surface((60 if boss else 28, 40 if boss else 20), pygame.SRCALPHA)
+        w, h = surf.get_size()
+        body = (96, 215, 120) if boss else (120, 220, 110)
+        shade = tuple(max(0, c - 38) for c in body)
+        highlight = tuple(min(255, c + 28) for c in body)
+        eye = (30, 35, 30)
+        pygame.draw.ellipse(surf, body, (0, 2, w, h - 2))
+        pygame.draw.ellipse(surf, shade, (2, 6, w - 4, h - 6), 0)
+        pygame.draw.ellipse(surf, highlight, (4, 2, w - 10, h // 2))
+        pygame.draw.ellipse(surf, (0, 0, 0, 35), (4, h - 8, w - 8, 6))
+        pygame.draw.arc(surf, shade, (2, 2, w - 4, h - 4), math.pi * 0.05, math.pi * 0.95, 2)
+        if boss:
+            crown = [(w // 2 - 12, 6), (w // 2 - 4, 0), (w // 2 + 4, 6), (w // 2 + 12, 0), (w // 2 + 20, 6)]
+            pygame.draw.polygon(surf, (255, 235, 120), crown)
+            pygame.draw.circle(surf, (255, 255, 255), (w // 2, h // 4), 5)
+            pygame.draw.circle(surf, eye, (w // 2, h // 4), 2)
+        else:
+            pygame.draw.circle(surf, eye, (w // 3, h // 2), 2)
+            pygame.draw.circle(surf, eye, (w * 2 // 3, h // 2), 2)
+            pygame.draw.arc(surf, eye, (w // 4, h // 2 - 1, w // 2, 8), math.pi, math.pi * 2, 2)
+        if boss:
+            pygame.draw.circle(surf, (255, 240, 110), (w // 2, h // 3), 4)
+        return surf
+    if kind == "zombie":
+        surf = pygame.Surface((26, 42), pygame.SRCALPHA)
+        pygame.draw.rect(surf, (107, 160, 85), (5, 0, 16, 10), border_radius=4)
+        pygame.draw.rect(surf, (95, 136, 75), (3, 8, 20, 16), border_radius=4)
+        pygame.draw.rect(surf, (72, 90, 58), (1, 22, 24, 12), border_radius=4)
+        pygame.draw.rect(surf, (56, 74, 44), (0, 31, 26, 11), border_radius=3)
+        pygame.draw.circle(surf, (235, 220, 160), (9, 6), 1)
+        pygame.draw.circle(surf, (235, 220, 160), (17, 6), 1)
+        pygame.draw.circle(surf, (15, 15, 15), (10, 7), 2)
+        pygame.draw.circle(surf, (15, 15, 15), (17, 7), 2)
+        pygame.draw.line(surf, (45, 40, 30), (6, 13), (20, 13), 2)
+        pygame.draw.line(surf, (40, 50, 30), (4, 27), (8, 40), 3)
+        pygame.draw.line(surf, (40, 50, 30), (18, 27), (22, 40), 3)
+        return surf
+    if kind == "bat":
+        surf = pygame.Surface((26, 18), pygame.SRCALPHA)
+        pygame.draw.polygon(surf, (95, 95, 120), [(0, 9), (8, 4), (10, 9), (8, 14)])
+        pygame.draw.polygon(surf, (78, 78, 98), [(26, 9), (18, 4), (16, 9), (18, 14)])
+        pygame.draw.ellipse(surf, (70, 70, 90), (9, 5, 8, 8))
+        pygame.draw.circle(surf, (255, 255, 255), (12, 8), 1)
+        pygame.draw.circle(surf, (255, 255, 255), (15, 8), 1)
+        pygame.draw.line(surf, (45, 45, 55), (12, 13), (10, 17), 1)
+        pygame.draw.line(surf, (45, 45, 55), (14, 13), (16, 17), 1)
+        return surf
+    if kind == "eye":
+        surf = pygame.Surface((32, 32), pygame.SRCALPHA)
+        pygame.draw.circle(surf, (170, 70, 190), (16, 16), 14)
+        pygame.draw.circle(surf, (220, 120, 235), (12, 12), 10)
+        pygame.draw.circle(surf, (255, 255, 255), (16, 16), 8)
+        pygame.draw.circle(surf, (35, 30, 35), (16, 16), 4)
+        pygame.draw.circle(surf, (255, 255, 255), (13, 13), 1)
+        pygame.draw.arc(surf, (120, 40, 130), (4, 4, 24, 24), 0, math.pi * 2, 2)
+        return surf
+    return pygame.Surface((16, 16), pygame.SRCALPHA)
+
+
+def tint_sprite(sprite, color, alpha=96):
+    tinted = sprite.copy()
+    overlay = pygame.Surface(sprite.get_size(), pygame.SRCALPHA)
+    overlay.fill((*color, alpha))
+    tinted.blit(overlay, (0, 0), special_flags=pygame.BLEND_RGBA_ADD)
+    return tinted
+
+
 def save_game(world, player, enemies, drops, surface):
     data = {
         "player": {
@@ -426,6 +656,7 @@ def save_game(world, player, enemies, drops, surface):
         },
         "world": world,
         "surface": surface,
+        "world_seed": WORLD_SEED,
         "time_of_day": time_of_day if "time_of_day" in globals() else 0.0,
         "enemies": [
             {
@@ -446,6 +677,7 @@ def save_game(world, player, enemies, drops, surface):
             for d in drops
         ],
         "chests": chest_storage if "chest_storage" in globals() else {},
+        "title_screen": False,
     }
     with open(SAVE_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f)
@@ -458,6 +690,8 @@ def load_game():
         data = json.load(f)
     world = data["world"]
     surface = data.get("surface")
+    if "world_seed" in data:
+        globals()["WORLD_SEED"] = data["world_seed"]
     p = data["player"]
     inventory = {int(k): v for k, v in p["inventory"].items()}
     player = Player(p["x"], p["y"], vx=p["vx"], vy=p["vy"], health=p["health"], selected=p["selected"], equipped=p.get("equipped", 102), inventory=inventory)
@@ -470,7 +704,7 @@ def load_game():
         Drop(d["x"], d["y"], d["item"], d.get("amount", 1), d.get("vx", 0), d.get("vy", 0), life=d.get("life", 30.0))
         for d in data.get("drops", [])
     ]
-    return world, surface, player, enemies, drops, data.get("time_of_day", 0.0), data.get("chests", {})
+    return world, surface, player, enemies, drops, data.get("time_of_day", 0.0), data.get("chests", {}), data.get("world_seed", WORLD_SEED)
 
 
 def count_inventory(player, item):
@@ -546,6 +780,29 @@ def move_stack(src, dst, item, amount=None):
     return move
 
 
+def play_sound(sounds, key):
+    if not AUDIO_ENABLED:
+        return
+    sound = sounds.get(key)
+    if sound:
+        try:
+            sound.play()
+        except Exception:
+            pass
+
+
+def play_music_track(sounds, key, loops=-1):
+    if not AUDIO_ENABLED:
+        return
+    sound = sounds.get(key)
+    if sound:
+        try:
+            pygame.mixer.fadeout(500)
+            sound.play(loops=loops, fade_ms=500)
+        except Exception:
+            pass
+
+
 def slot_item(inv, index):
     items = inventory_items(inv)
     if 0 <= index < len(items):
@@ -555,6 +812,31 @@ def slot_item(inv, index):
 
 def chest_panel_rect():
     return pygame.Rect(120, 100, 1040, 470)
+
+
+def inventory_panel_rect():
+    return pygame.Rect(18, HEIGHT - 170, 360, 152)
+
+
+def world_biome_for_x(x):
+    ratio = x / max(1, WORLD_W * TILE)
+    if ratio < 0.4:
+        return "forest"
+    if ratio < 0.7:
+        return "desert"
+    return "mountain"
+
+
+def cave_depth_for_y(y):
+    return y / max(1, WORLD_H * TILE)
+
+
+def select_music_track(sounds, biome, in_cave=False, boss=False):
+    if boss:
+        return "music_boss"
+    if in_cave:
+        return "music_cave"
+    return "music_forest" if biome == "forest" else "music_desert" if biome == "desert" else "music_cave"
 
 
 def try_craft(player, world, recipe):
@@ -617,15 +899,40 @@ def chest_inventory(chest_storage, tx, ty):
 
 def main():
     pygame.init()
-    pygame.display.set_caption("TerraLite")
+    pygame.display.set_caption("TerraForge")
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
     clock = pygame.time.Clock()
     font = pygame.font.SysFont("consolas", 18)
     big = pygame.font.SysFont("consolas", 30, bold=True)
+    try:
+        pygame.mixer.init(frequency=44100, size=-16, channels=2, buffer=512)
+    except Exception:
+        pass
+    sounds = make_audio()
+    block_textures = make_block_textures()
+    player_sprite = make_player_sprite()
+    sword_sprite = make_sword_sprite()
+    far_parallax, mid_parallax = make_parallax_layers()
+    save_texture_sheet("blocks", list(block_textures.values()))
+    save_texture_sheet("sprites", [player_sprite, sword_sprite])
+    slime_sprite = make_enemy_sprite("slime", False)
+    slime_king_sprite = make_enemy_sprite("slime_king", True)
+    enemy_sprites = {
+        ("slime", False): slime_sprite,
+        ("slime_king", True): slime_king_sprite,
+        ("zombie", False): make_enemy_sprite("zombie", False),
+        ("bat", False): make_enemy_sprite("bat", False),
+        ("eye", False): make_enemy_sprite("eye", False),
+        ("slime_forest", False): tint_sprite(slime_sprite, (40, 30, 20), 35),
+        ("slime_desert", False): tint_sprite(slime_sprite, (235, 200, 110), 35),
+        ("zombie_desert", False): tint_sprite(make_enemy_sprite("zombie", False), (220, 180, 80), 45),
+        ("bat_cave", False): tint_sprite(make_enemy_sprite("bat", False), (130, 110, 170), 35),
+    }
 
     loaded = load_game()
     if loaded:
-        world, surface, player, enemies, drops, time_of_day, chest_storage = loaded
+        world, surface, player, enemies, drops, time_of_day, chest_storage, loaded_seed = loaded
+        globals()["WORLD_SEED"] = loaded_seed
     else:
         world, surface = new_world()
         player = Player(12 * TILE, 10 * TILE)
@@ -654,6 +961,9 @@ def main():
     inventory_open = True
     hotbar_locked = False
     boss_spawned = any(e.boss for e in enemies)
+    title_screen = True
+    current_music = None
+    current_biome = None
 
     while running:
         dt = min(clock.tick(FPS) / 1000.0, 1 / 30)
@@ -665,6 +975,12 @@ def main():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+            if title_screen:
+                if event.type == pygame.KEYDOWN and event.key in (pygame.K_RETURN, pygame.K_SPACE):
+                    title_screen = False
+                elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                    title_screen = False
+                continue
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     running = False
@@ -719,9 +1035,9 @@ def main():
                                 if try_craft(player, world, recipe):
                                     action_cooldown = 0.1
                     elif inventory_open:
-                        inv_panel = pygame.Rect(WIDTH // 2 - 230, HEIGHT - 290, 460, 220)
+                        inv_panel = inventory_panel_rect()
                         if inv_panel.collidepoint(event.pos):
-                            idx = inventory_slot_at(event.pos, inv_panel.x + 12, inv_panel.y + 44, INVENTORY_CAPACITY, columns=INVENTORY_COLUMNS)
+                            idx = inventory_slot_at(event.pos, inv_panel.x + 12, inv_panel.y + 40, INVENTORY_CAPACITY, slot_size=28, gap=3, columns=INVENTORY_COLUMNS)
                             if idx is not None:
                                 drag_item = slot_item(player.inventory, idx)
                                 drag_from = "player" if drag_item is not None else None
@@ -772,6 +1088,25 @@ def main():
                     drag_from = None
 
         keys = pygame.key.get_pressed()
+        if title_screen:
+            screen.fill((18, 22, 38))
+            for y in range(HEIGHT):
+                t = y / HEIGHT
+                c = (18 + int(30 * t), 22 + int(45 * t), 38 + int(75 * t))
+                pygame.draw.line(screen, c, (0, y), (WIDTH, y))
+            draw_text(screen, big, "TerraForge", WIDTH // 2 - 70, HEIGHT // 2 - 80, (245, 230, 200))
+            draw_text(screen, font, "Press Enter or click to start", WIDTH // 2 - 95, HEIGHT // 2 - 30, (230, 230, 230))
+            draw_text(screen, font, "Mining, crafting, combat, bosses, caves, and liquids", WIDTH // 2 - 160, HEIGHT // 2 + 10, (200, 200, 210))
+            pygame.display.flip()
+            continue
+
+        biome = world_biome_for_x(player.x + player.w / 2)
+        in_cave = cave_depth_for_y(player.y + player.h / 2) > 0.55
+        desired_music = select_music_track(sounds, biome, in_cave=in_cave, boss=any(e.boss and e.health > 0 for e in enemies))
+        if desired_music != current_music:
+            play_music_track(sounds, desired_music)
+            current_music = desired_music
+            current_biome = biome
         if keys[pygame.K_a] or keys[pygame.K_LEFT]:
             player.vx -= MOVE_ACCEL * dt
             player.facing = -1
@@ -797,6 +1132,18 @@ def main():
             player.x, player.y = 12 * TILE, 10 * TILE
             player.vx = player.vy = 0
 
+        center_tx = int((player.x + player.w / 2) // TILE)
+        center_ty = int((player.y + player.h / 2) // TILE)
+        feet_ty = int((player.y + player.h - 1) // TILE)
+        in_water = get_block(world, center_tx, center_ty) == WATER or get_block(world, center_tx, feet_ty) == WATER
+        in_lava = get_block(world, center_tx, center_ty) == LAVA or get_block(world, center_tx, feet_ty) == LAVA
+        if in_water:
+            player.vx *= 0.92
+            player.vy *= 0.90
+        if in_lava:
+            player.health -= 18 * dt
+            player.vx *= 0.85
+
         mouse = pygame.mouse.get_pos()
         cam_target_x = player.x + player.w / 2 - WIDTH / 2
         cam_target_y = player.y + player.h / 2 - HEIGHT / 2
@@ -811,6 +1158,7 @@ def main():
         target_rect = pygame.Rect(tx * TILE, ty * TILE, TILE, TILE)
         dist = math.hypot((player.x + player.w / 2) - world_mouse[0], (player.y + player.h / 2) - world_mouse[1])
         mouse_buttons = pygame.mouse.get_pressed()
+        mouse_world_rect = pygame.Rect(int(world_mouse[0] - 2), int(world_mouse[1] - 2), 4, 4)
         chest_target = nearby_chest(world, player)
         if chest_target is None:
             chest_panel_open = False
@@ -818,7 +1166,45 @@ def main():
         else:
             player.chest_open = chest_key(*chest_target)
 
-        if mouse_buttons[0] and action_cooldown <= 0 and dist <= REACH:
+        clicked_enemy = None
+        if mouse_buttons[0]:
+            for enemy in enemies:
+                if enemy.health > 0 and mouse_world_rect.colliderect(enemy.rect):
+                    clicked_enemy = enemy
+                    break
+
+        if mouse_buttons[0] and action_cooldown <= 0 and clicked_enemy is not None:
+            enemy = clicked_enemy
+            player.attack_timer = 0.15
+            if player.equipped == 101:
+                player.attack_cooldown = 0.22
+                attack_flash = 0.18
+                attack_rect = pygame.Rect(enemy.rect.x - 12, enemy.rect.y - 6, enemy.rect.w + 24, enemy.rect.h + 12)
+            else:
+                player.attack_cooldown = 0.3
+                attack_flash = 0.10
+                attack_rect = pygame.Rect(enemy.rect.x - 8, enemy.rect.y - 8, enemy.rect.w + 16, enemy.rect.h + 16)
+            damage = 18 if player.equipped == 101 else 20 if player.equipped in (103, 104) else 10
+            if enemy.boss:
+                damage = max(4, damage // 2)
+            enemy.health -= damage
+            enemy.vx += (240 if player.equipped == 101 else 140) * (1 if player.x < enemy.x else -1)
+            enemy.vy -= 240 if player.equipped == 101 else 160
+            play_sound(sounds, "swing")
+            if enemy.health <= 0:
+                drop_table = [WOOD, STONE, COAL_ORE, IRON_ORE, 100, TORCH]
+                if enemy.kind == "zombie":
+                    drop_table += [SAND, STONE, 100]
+                if enemy.kind == "eye":
+                    drop_table += [GOLD_ORE, GOLD_ORE, IRON_ORE]
+                if enemy.boss:
+                    drop_table += [GOLD_ORE, GOLD_ORE, IRON_ORE, 101, 102, 103, 104, CHEST, WORKBENCH, TORCH]
+                drops.append(Drop(enemy.x, enemy.y, random.choice(drop_table), random.randint(3, 8 if enemy.boss else 4), random.uniform(-80, 80), -160, life=60 if enemy.boss else 30))
+                play_sound(sounds, "hit")
+                if enemy.boss:
+                    play_sound(sounds, "boss")
+            action_cooldown = player.attack_cooldown
+        elif mouse_buttons[0] and action_cooldown <= 0 and dist <= REACH:
             block = get_block(world, tx, ty)
             if block in MINABLE:
                 power = item_mining_power(player)
@@ -841,6 +1227,7 @@ def main():
                     if block == GOLD_ORE:
                         give_item(player, GOLD_ORE, 1)
                     action_cooldown = 0.12
+                    play_sound(sounds, "mine")
                     if random.random() < 0.15:
                         drops.append(Drop(tx * TILE + 8, ty * TILE + 8, block, 1, random.uniform(-40, 40), -80))
 
@@ -850,22 +1237,29 @@ def main():
                     set_block(world, tx, ty, player.selected)
                     player.inventory[player.selected] -= 1
                     action_cooldown = 0.12
+                    play_sound(sounds, "place")
 
         if chest_panel_open and chest_target is None:
             chest_panel_open = False
         if mouse_buttons[1] and action_cooldown <= 0 and not craft_panel_open and not chest_panel_open:
             player.attack_timer = 0.15
-            player.attack_cooldown = 0.35
-            attack_flash = 0.12
-            attack_rect = pygame.Rect(player.rect.x + (player.w if player.facing == 1 else -42), player.rect.y + 6, 42, player.h - 12)
+            if player.equipped == 101:
+                player.attack_cooldown = 0.26
+                attack_flash = 0.18
+                attack_rect = pygame.Rect(player.rect.x + (player.w if player.facing == 1 else -52), player.rect.y + 2, 52, player.h - 4)
+            else:
+                player.attack_cooldown = 0.35
+                attack_flash = 0.12
+                attack_rect = pygame.Rect(player.rect.x + (player.w if player.facing == 1 else -42), player.rect.y + 6, 42, player.h - 12)
             for enemy in enemies:
                 if enemy.health > 0 and attack_rect.colliderect(enemy.rect):
-                    damage = 14 if player.equipped == 101 else 20 if player.equipped in (103, 104) else 10
+                    damage = 18 if player.equipped == 101 else 20 if player.equipped in (103, 104) else 10
                     if enemy.boss:
                         damage = max(4, damage // 2)
                     enemy.health -= damage
-                    enemy.vx += 140 * player.facing
-                    enemy.vy -= 160
+                    enemy.vx += (220 if player.equipped == 101 else 140) * player.facing
+                    enemy.vy -= 220 if player.equipped == 101 else 160
+                    play_sound(sounds, "swing")
                     if enemy.health <= 0:
                         drop_table = [WOOD, STONE, COAL_ORE, IRON_ORE, 100, TORCH]
                         if enemy.kind == "zombie":
@@ -875,6 +1269,9 @@ def main():
                         if enemy.boss:
                             drop_table += [GOLD_ORE, GOLD_ORE, IRON_ORE, 101, 102, 103, 104, CHEST, WORKBENCH, TORCH]
                         drops.append(Drop(enemy.x, enemy.y, random.choice(drop_table), random.randint(3, 8 if enemy.boss else 4), random.uniform(-80, 80), -160, life=60 if enemy.boss else 30))
+                        play_sound(sounds, "hit")
+                        if enemy.boss:
+                            play_sound(sounds, "boss")
             action_cooldown = player.attack_cooldown
 
         for enemy in enemies:
@@ -940,6 +1337,7 @@ def main():
             if drop.rect.colliderect(player.rect):
                 give_item(player, drop.item, drop.amount)
                 drop.life = 0
+                play_sound(sounds, "pickup")
 
         drops = [d for d in drops if d.life > 0]
         enemies = [e for e in enemies if e.health > 0 or random.random() < 0.995]
@@ -956,8 +1354,14 @@ def main():
             int(20 + 80 * max(0, daylight)),
             int(35 + 120 * max(0, daylight)),
         )
-        pygame.draw.rect(screen, sky_top, (0, 0, WIDTH, HEIGHT // 2))
-        pygame.draw.rect(screen, sky_bottom, (0, HEIGHT // 2, WIDTH, HEIGHT // 2))
+        for y in range(HEIGHT):
+            t = y / HEIGHT
+            c = (
+                int(sky_top[0] * (1 - t) + sky_bottom[0] * t),
+                int(sky_top[1] * (1 - t) + sky_bottom[1] * t),
+                int(sky_top[2] * (1 - t) + sky_bottom[2] * t),
+            )
+            pygame.draw.line(screen, c, (0, y), (WIDTH, y))
         draw_sun_x = int((camera_x * 0.06 + time_of_day * WIDTH) % (WIDTH + 200) - 100)
         sun_y = 110 + int(35 * math.sin(time_of_day * math.tau))
         if daylight > -0.2:
@@ -965,6 +1369,17 @@ def main():
         else:
             pygame.draw.circle(screen, (220, 225, 255), (draw_sun_x, sun_y), 24)
             pygame.draw.circle(screen, (120, 130, 180), (draw_sun_x + 10, sun_y - 8), 4)
+
+        far_x = int(-camera_x * 0.08) % far_parallax.get_width()
+        mid_x = int(-camera_x * 0.18) % mid_parallax.get_width()
+        parallax_tint = (90, 150, 100) if biome == "forest" else (200, 180, 110) if biome == "desert" else (100, 110, 135)
+        parallax_overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        parallax_overlay.fill((*parallax_tint, 14))
+        screen.blit(parallax_overlay, (0, 0))
+        screen.blit(far_parallax, (-far_x, HEIGHT // 4 - far_parallax.get_height() // 2))
+        screen.blit(far_parallax, (-far_x + far_parallax.get_width(), HEIGHT // 4 - far_parallax.get_height() // 2))
+        screen.blit(mid_parallax, (-mid_x, HEIGHT // 2 - mid_parallax.get_height() // 2))
+        screen.blit(mid_parallax, (-mid_x + mid_parallax.get_width(), HEIGHT // 2 - mid_parallax.get_height() // 2))
 
         start_tx = max(0, int(camera_x // TILE) - 1)
         end_tx = min(WORLD_W, int((camera_x + WIDTH) // TILE) + 2)
@@ -975,12 +1390,29 @@ def main():
                 block = world[x][y]
                 if block != AIR:
                     sx, sy = world_to_screen(camera_x, camera_y, x * TILE, y * TILE)
-                    pygame.draw.rect(screen, BLOCK_COLORS[block], (sx, sy, TILE, TILE))
+                    if block in (WATER, LAVA):
+                        wave = int(math.sin((pygame.time.get_ticks() * 0.008) + x * 0.4 + y * 0.2) * 4)
+                        liquid_color = (52, 128, 235) if block == WATER else (240, 104, 36)
+                        highlight = (160, 220, 255) if block == WATER else (255, 190, 90)
+                        pygame.draw.rect(screen, liquid_color, (sx, sy + wave, TILE, TILE))
+                        pygame.draw.circle(screen, highlight, (sx + 8, sy + 8 + wave), 3)
+                        pygame.draw.circle(screen, highlight, (sx + 20, sy + 14 + wave), 2)
+                    else:
+                        tex = block_textures.get(block)
+                        if tex:
+                            screen.blit(tex, (sx, sy))
+                        else:
+                            pygame.draw.rect(screen, BLOCK_COLORS[block], (sx, sy, TILE, TILE))
                     if block == GRASS:
-                        pygame.draw.rect(screen, (90, 180, 80), (sx, sy, TILE, 6))
-                    if block == TORCH:
-                        pygame.draw.circle(screen, (255, 190, 70), (sx + 16, sy + 14), 6)
-                    pygame.draw.rect(screen, (0, 0, 0), (sx, sy, TILE, TILE), 1)
+                        pygame.draw.rect(screen, (95, 190, 86), (sx, sy, TILE, 5))
+                    elif block == TORCH:
+                        pygame.draw.circle(screen, (255, 210, 120), (sx + 16, sy + 14), 6)
+                        pygame.draw.circle(screen, (255, 160, 40), (sx + 16, sy + 14), 10, 2)
+                    elif block == WORKBENCH:
+                        pygame.draw.rect(screen, (115, 80, 48), (sx + 4, sy + 6, 24, 20), 1, border_radius=2)
+                    elif block == CHEST:
+                        pygame.draw.line(screen, (190, 140, 80), (sx + 6, sy + 12), (sx + 26, sy + 12), 2)
+                    pygame.draw.rect(screen, (0, 0, 0), (sx, sy + (wave if block in (WATER, LAVA) else 0), TILE, TILE), 1)
 
         if daylight < 0.15:
             darkness = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
@@ -991,30 +1423,53 @@ def main():
 
         for drop in drops:
             sx, sy = world_to_screen(camera_x, camera_y, drop.x, drop.y)
-            pygame.draw.rect(screen, BLOCK_COLORS.get(drop.item, (255, 255, 255)), (sx, sy, drop.w, drop.h), border_radius=4)
+            color = BLOCK_COLORS.get(drop.item, (255, 255, 255))
+            glow = pygame.Surface((drop.w + 12, drop.h + 12), pygame.SRCALPHA)
+            pygame.draw.ellipse(glow, (*color, 60), (0, 0, drop.w + 12, drop.h + 12))
+            screen.blit(glow, (sx - 6, sy - 6))
+            pygame.draw.rect(screen, color, (sx, sy, drop.w, drop.h), border_radius=4)
+            pygame.draw.rect(screen, (0, 0, 0), (sx, sy, drop.w, drop.h), 1, border_radius=4)
 
         for enemy in enemies:
             if enemy.health <= 0:
                 continue
             sx, sy = world_to_screen(camera_x, camera_y, enemy.x, enemy.y)
+            biome_sprite_key = enemy.kind
             if enemy.kind == "slime":
-                pygame.draw.ellipse(screen, (120, 220, 110), (sx, sy, enemy.w, enemy.h))
-                pygame.draw.circle(screen, (40, 70, 40), (sx + 9, sy + 8), 2)
-                pygame.draw.circle(screen, (40, 70, 40), (sx + 19, sy + 8), 2)
+                biome_sprite_key = "slime_forest" if biome == "forest" else "slime_desert" if biome == "desert" else "slime"
+            elif enemy.kind == "zombie":
+                biome_sprite_key = "zombie_desert" if biome == "desert" else "zombie"
+            elif enemy.kind == "bat":
+                biome_sprite_key = "bat_cave" if in_cave else "bat"
+            sprite = enemy_sprites.get((biome_sprite_key, enemy.boss)) or enemy_sprites.get((biome_sprite_key, False)) or enemy_sprites.get((enemy.kind, enemy.boss)) or enemy_sprites.get((enemy.kind, False))
+            if sprite:
+                if enemy.kind == "eye":
+                    bob = int(math.sin(pygame.time.get_ticks() * 0.005 + enemy.x * 0.01) * 2)
+                    pulse = 1 + (math.sin(pygame.time.get_ticks() * 0.01) * 0.03)
+                    screen.blit(pygame.transform.smoothscale(sprite, (int(sprite.get_width() * pulse), int(sprite.get_height() * pulse))), (sx - 1, sy + bob - 1))
+                else:
+                    flicker = int(math.sin(pygame.time.get_ticks() * 0.008 + enemy.x * 0.05) * 1)
+                    screen.blit(sprite, (sx, sy + flicker))
             else:
-                pygame.draw.ellipse(screen, (80, 80, 100), (sx, sy, enemy.w, enemy.h))
-                pygame.draw.circle(screen, (220, 220, 240), (sx + 7, sy + 6), 2)
-                pygame.draw.circle(screen, (220, 220, 240), (sx + 16, sy + 6), 2)
+                pygame.draw.ellipse(screen, (120, 220, 110), (sx, sy, enemy.w, enemy.h))
 
         px, py = world_to_screen(camera_x, camera_y, player.x, player.y)
-        pygame.draw.rect(screen, (255, 210, 160), (px, py, player.w, player.h), border_radius=6)
-        pygame.draw.rect(screen, (55, 90, 200), (px, py + 18, player.w, 26), border_radius=5)
-        pygame.draw.rect(screen, (220, 180, 120), (px + 4, py - 6, 16, 12), border_radius=5)
-        hand_x = px + (player.w - 4 if player.facing == 1 else -6)
-        pygame.draw.rect(screen, (130, 90, 50), (hand_x, py + 20, 10, 4))
+        flip = player.facing == -1
+        player_img = pygame.transform.flip(player_sprite, flip, False) if flip else player_sprite
+        screen.blit(player_img, (px, py))
+        hand_x = px + (player.w - 4 if player.facing == 1 else -8)
+        pygame.draw.rect(screen, (140, 96, 56), (hand_x, py + 22, 10, 4))
         if attack_flash > 0:
-            attack_rect = pygame.Rect(px + (player.w if player.facing == 1 else -42), py + 6, 42, player.h - 12)
-            pygame.draw.rect(screen, (255, 225, 120), attack_rect, 2)
+            if player.equipped == 101:
+                sword_img = pygame.transform.flip(sword_sprite, True, False) if player.facing == -1 else sword_sprite
+                sword_x = px + (player.w + 6 if player.facing == 1 else -sword_img.get_width() - 6)
+                sword_y = py + 16
+                screen.blit(sword_img, (sword_x, sword_y))
+                arc = pygame.Rect(px + (player.w if player.facing == 1 else -56), py + 6, 56, player.h - 8)
+                pygame.draw.arc(screen, (255, 230, 140), arc, 0.2, 1.4, 3)
+            else:
+                attack_rect = pygame.Rect(px + (player.w if player.facing == 1 else -42), py + 6, 42, player.h - 12)
+                pygame.draw.rect(screen, (255, 225, 120), attack_rect, 2)
 
         pygame.draw.rect(screen, (20, 20, 20), (18, 18, 240, 20), border_radius=6)
         pygame.draw.rect(screen, (200, 60, 60), (18, 18, 240 * max(0, player.health) / 100, 20), border_radius=6)
@@ -1024,8 +1479,13 @@ def main():
         for i, block in enumerate(selected_order):
             x = WIDTH // 2 - 235 + i * 72
             box = pygame.Rect(x, hotbar_y, 60, 36)
-            pygame.draw.rect(screen, (70, 70, 70), box, border_radius=6)
-            pygame.draw.rect(screen, BLOCK_COLORS[block], box.inflate(-16, -16))
+            pygame.draw.rect(screen, (48, 42, 36), box, border_radius=6)
+            tex = block_textures.get(block)
+            if tex:
+                scaled = pygame.transform.smoothscale(tex, (28, 20))
+                screen.blit(scaled, (box.x + 16, box.y + 8))
+            else:
+                pygame.draw.rect(screen, BLOCK_COLORS[block], box.inflate(-16, -16))
             if player.selected == block:
                 pygame.draw.rect(screen, (255, 240, 100), box, 3, border_radius=6)
             qty = player.inventory.get(block, 0)
@@ -1033,19 +1493,28 @@ def main():
             draw_text(screen, font, str(i + 1), x + 42, hotbar_y + 2, (220, 220, 220))
 
         if inventory_open:
-            inv_panel = pygame.Rect(WIDTH // 2 - 230, HEIGHT - 290, 460, 220)
-            pygame.draw.rect(screen, (28, 24, 22), inv_panel, border_radius=14)
-            pygame.draw.rect(screen, (220, 190, 120), inv_panel, 2, border_radius=14)
+            inv_panel = inventory_panel_rect()
+            pygame.draw.rect(screen, (18, 18, 20), inv_panel, border_radius=16)
+            pygame.draw.rect(screen, (200, 170, 110), inv_panel, 2, border_radius=16)
+            title_bar = pygame.Rect(inv_panel.x, inv_panel.y, inv_panel.w, 32)
+            pygame.draw.rect(screen, (28, 24, 22), title_bar, border_radius=16)
             inv_items = inventory_items(player.inventory)
+            draw_text(screen, font, "Inventory", inv_panel.x + 14, inv_panel.y + 7, (245, 230, 200))
+            draw_text(screen, font, "Drag items", inv_panel.x + 120, inv_panel.y + 7, (180, 180, 180))
             for idx in range(INVENTORY_CAPACITY):
-                slot = inventory_slot_rect(idx, inv_panel.x + 12, inv_panel.y + 44, columns=INVENTORY_COLUMNS)
-                pygame.draw.rect(screen, (68, 68, 68), slot, border_radius=6)
+                slot = inventory_slot_rect(idx, inv_panel.x + 12, inv_panel.y + 40, slot_size=28, gap=3, columns=INVENTORY_COLUMNS)
+                pygame.draw.rect(screen, (52, 48, 44), slot, border_radius=8)
                 if idx < len(inv_items):
                     item = inv_items[idx]
-                    pygame.draw.rect(screen, BLOCK_COLORS.get(item, (255, 255, 255)), slot.inflate(-14, -14))
-                    draw_text(screen, font, str(player.inventory[item]), slot.x + 3, slot.y + 23, (255, 255, 255))
-                pygame.draw.rect(screen, (0, 0, 0), slot, 1, border_radius=6)
-            draw_text(screen, font, "Inventory", inv_panel.x + 14, inv_panel.y + 12, (245, 230, 200))
+                    tex = block_textures.get(item)
+                    if tex:
+                        screen.blit(pygame.transform.smoothscale(tex, (15, 15)), (slot.x + 6, slot.y + 6))
+                    else:
+                        pygame.draw.rect(screen, BLOCK_COLORS.get(item, (255, 255, 255)), slot.inflate(-16, -16))
+                    draw_text(screen, font, str(player.inventory[item]), slot.x + 1, slot.y + 14, (255, 255, 255))
+                    if player.inventory[item] > 1:
+                        pygame.draw.circle(screen, (255, 255, 255), (slot.right - 7, slot.top + 7), 3)
+                pygame.draw.rect(screen, (0, 0, 0), slot, 1, border_radius=8)
 
         # Minimap
         mmx = WIDTH - MINIMAP_W - 18
@@ -1062,6 +1531,8 @@ def main():
                     if block in {STONE, COAL_ORE, IRON_ORE, GOLD_ORE}:
                         color = tuple(min(255, c + 20) for c in color)
                     mini.set_at((mx, my), color)
+                    if y > WORLD_H // 2 and block in {STONE, COAL_ORE, IRON_ORE, GOLD_ORE}:
+                        mini.set_at((mx, my), tuple(max(0, c - 10) for c in color))
         pxm = int(player.x / (WORLD_W * TILE) * MINIMAP_W)
         pym = int(player.y / (WORLD_H * TILE) * MINIMAP_H)
         pygame.draw.circle(mini, (255, 255, 255), (pxm, pym), 2)
@@ -1088,17 +1559,18 @@ def main():
             screen.blit(overlay, (0, 0))
 
         if craft_panel_open:
-            panel = pygame.Rect(WIDTH - 360, 120, 320, 420)
-            pygame.draw.rect(screen, (30, 28, 26), panel, border_radius=12)
-            pygame.draw.rect(screen, (220, 190, 120), panel, 2, border_radius=12)
-            draw_text(screen, big, "Crafting", panel.x + 16, panel.y + 10, (245, 230, 200))
+            panel = pygame.Rect(WIDTH - 390, 120, 350, 420)
+            pygame.draw.rect(screen, (18, 18, 20), panel, border_radius=14)
+            pygame.draw.rect(screen, (220, 190, 120), panel, 2, border_radius=14)
+            pygame.draw.rect(screen, (30, 28, 26), (panel.x, panel.y, panel.w, 38), border_radius=14)
+            draw_text(screen, big, "Crafting", panel.x + 16, panel.y + 7, (245, 230, 200))
             draw_text(screen, font, "Click an item to craft", panel.x + 16, panel.y + 42, (220, 220, 220))
             draw_text(screen, font, "Scroll: mouse wheel", panel.x + 166, panel.y + 42, (180, 180, 180))
             visible = RECIPES[craft_scroll:craft_scroll + 7]
             for i, recipe in enumerate(visible):
                 yy = panel.y + 72 + i * 48
                 can_make = all(count_inventory(player, item) >= amt for item, amt in recipe["requires"].items()) and has_station(world, player, recipe["station"])
-                row = pygame.Rect(panel.x + 12, yy, 296, 40)
+                row = pygame.Rect(panel.x + 12, yy, 326, 40)
                 pygame.draw.rect(screen, (58, 54, 50) if can_make else (42, 40, 38), row, border_radius=8)
                 if can_make:
                     pygame.draw.rect(screen, (90, 160, 90), row, 2, border_radius=8)
@@ -1114,37 +1586,46 @@ def main():
             txc, tyc = chest_target
             chest = chest_inventory(chest_storage, txc, tyc)
             panel = chest_panel_rect()
-            pygame.draw.rect(screen, (32, 26, 22), panel, border_radius=12)
+            pygame.draw.rect(screen, (14, 14, 16), panel, border_radius=14)
             pygame.draw.rect(screen, (170, 120, 70), panel, 2, border_radius=12)
-            draw_text(screen, big, "Chest", panel.x + 16, panel.y + 10, (245, 230, 200))
-            draw_text(screen, font, "Left click to move stacks | Right click to quick transfer", panel.x + 16, panel.y + 42, (220, 220, 220))
+            pygame.draw.rect(screen, (32, 26, 22), (panel.x, panel.y, panel.w, 38), border_radius=14)
+            draw_text(screen, big, "Chest", panel.x + 16, panel.y + 7, (245, 230, 200))
+            draw_text(screen, font, "Left click = move stack   Right click = quick transfer", panel.x + 16, panel.y + 42, (220, 220, 220))
             chest_items = inventory_items(chest)
             inv_items = inventory_items(player.inventory)
-            left_grid = pygame.Rect(panel.x + 24, panel.y + 78, 360, 290)
-            right_grid = pygame.Rect(panel.x + 560, panel.y + 78, 360, 290)
-            pygame.draw.rect(screen, (22, 18, 16), left_grid, border_radius=10)
-            pygame.draw.rect(screen, (22, 18, 16), right_grid, border_radius=10)
-            pygame.draw.rect(screen, (105, 75, 45), left_grid, 2, border_radius=10)
-            pygame.draw.rect(screen, (105, 75, 45), right_grid, 2, border_radius=10)
+            left_grid = pygame.Rect(panel.x + 24, panel.y + 78, 460, 318)
+            right_grid = pygame.Rect(panel.x + 556, panel.y + 78, 460, 318)
+            pygame.draw.rect(screen, (22, 18, 16), left_grid, border_radius=12)
+            pygame.draw.rect(screen, (22, 18, 16), right_grid, border_radius=12)
+            pygame.draw.rect(screen, (105, 75, 45), left_grid, 2, border_radius=12)
+            pygame.draw.rect(screen, (105, 75, 45), right_grid, 2, border_radius=12)
             draw_text(screen, font, "Chest Storage", left_grid.x + 10, left_grid.y - 24, (245, 230, 200))
             draw_text(screen, font, "Inventory", right_grid.x + 10, right_grid.y - 24, (245, 230, 200))
             for idx in range(INVENTORY_CAPACITY):
-                slot = inventory_slot_rect(idx, left_grid.x + 12, left_grid.y + 12, slot_size=42, gap=6, columns=INVENTORY_COLUMNS)
-                pygame.draw.rect(screen, (65, 65, 65), slot, border_radius=6)
+                slot = inventory_slot_rect(idx, left_grid.x + 12, left_grid.y + 12, slot_size=46, gap=6, columns=INVENTORY_COLUMNS)
+                pygame.draw.rect(screen, (58, 58, 58), slot, border_radius=8)
                 if idx < len(chest_items):
                     item = chest_items[idx]
-                    pygame.draw.rect(screen, BLOCK_COLORS.get(item, (255, 255, 255)), slot.inflate(-12, -12))
-                    draw_text(screen, font, str(chest[item]), slot.x + 3, slot.y + 20, (255, 255, 255))
-                pygame.draw.rect(screen, (0, 0, 0), slot, 1, border_radius=6)
+                    tex = block_textures.get(item)
+                    if tex:
+                        screen.blit(pygame.transform.smoothscale(tex, (26, 26)), (slot.x + 10, slot.y + 10))
+                    else:
+                        pygame.draw.rect(screen, BLOCK_COLORS.get(item, (255, 255, 255)), slot.inflate(-14, -14))
+                    draw_text(screen, font, str(chest[item]), slot.x + 4, slot.y + 26, (255, 255, 255))
+                pygame.draw.rect(screen, (0, 0, 0), slot, 1, border_radius=8)
             for idx in range(INVENTORY_CAPACITY):
-                slot = inventory_slot_rect(idx, right_grid.x + 12, right_grid.y + 12, slot_size=42, gap=6, columns=INVENTORY_COLUMNS)
-                pygame.draw.rect(screen, (65, 65, 65), slot, border_radius=6)
+                slot = inventory_slot_rect(idx, right_grid.x + 12, right_grid.y + 12, slot_size=46, gap=6, columns=INVENTORY_COLUMNS)
+                pygame.draw.rect(screen, (58, 58, 58), slot, border_radius=8)
                 if idx < len(inv_items):
                     item = inv_items[idx]
-                    pygame.draw.rect(screen, BLOCK_COLORS.get(item, (255, 255, 255)), slot.inflate(-12, -12))
-                    draw_text(screen, font, str(player.inventory[item]), slot.x + 3, slot.y + 20, (255, 255, 255))
-                pygame.draw.rect(screen, (0, 0, 0), slot, 1, border_radius=6)
-            draw_text(screen, font, "Drag and drop between sides", panel.x + 16, panel.y + 446, (220, 220, 220))
+                    tex = block_textures.get(item)
+                    if tex:
+                        screen.blit(pygame.transform.smoothscale(tex, (26, 26)), (slot.x + 10, slot.y + 10))
+                    else:
+                        pygame.draw.rect(screen, BLOCK_COLORS.get(item, (255, 255, 255)), slot.inflate(-14, -14))
+                    draw_text(screen, font, str(player.inventory[item]), slot.x + 4, slot.y + 26, (255, 255, 255))
+                pygame.draw.rect(screen, (0, 0, 0), slot, 1, border_radius=8)
+            draw_text(screen, font, "Drag and drop items between the two panels", panel.x + 16, panel.y + 446, (220, 220, 220))
 
         if help_open:
             help_panel = pygame.Rect(18, 52, 250, 210)

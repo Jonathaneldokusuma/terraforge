@@ -4,3 +4,4 @@ savegame.json
 *.log
 .venv/
 venv/
+generated_assets/
