@@ -1652,6 +1652,13 @@ def main():
                     screen.blit(sprite, (sx, sy + flicker))
             else:
                 pygame.draw.ellipse(screen, (120, 220, 110), (sx, sy, enemy.w, enemy.h))
+            if enemy.kind != "bat":
+                bar_w = max(18, enemy.w)
+                bar_x = sx + (enemy.w - bar_w) // 2
+                bar_y = sy - 8
+                hp_ratio = max(0.0, min(1.0, enemy.health / (240 if enemy.boss else 60 if enemy.kind == "slime_king" else 38 if enemy.kind == "zombie" else 20)))
+                pygame.draw.rect(screen, (22, 18, 18), (bar_x, bar_y, bar_w, 4), border_radius=2)
+                pygame.draw.rect(screen, (210, 70, 70) if not enemy.boss else (255, 180, 40), (bar_x, bar_y, int(bar_w * hp_ratio), 4), border_radius=2)
 
         px, py = world_to_screen(camera_x, camera_y, player.x, player.y)
         flip = player.facing == -1
@@ -1838,7 +1845,9 @@ def main():
             mx, my = pygame.mouse.get_pos()
             tex = item_surface(drag_item, block_textures, item_textures)
             if tex:
-                screen.blit(pygame.transform.smoothscale(tex, (32, 32)), (mx - 16, my - 16))
+                ghost = pygame.transform.smoothscale(tex, (32, 32)).copy()
+                ghost.set_alpha(210)
+                screen.blit(ghost, (mx - 16, my - 16))
             else:
                 pygame.draw.rect(screen, BLOCK_COLORS.get(drag_item, (255, 255, 255)), (mx - 16, my - 16, 32, 32), border_radius=6)
 
