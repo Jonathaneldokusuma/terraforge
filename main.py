@@ -48,6 +48,12 @@ BAT = 15
 EYE = 16
 WATER = 17
 LAVA = 18
+FIBER = 19
+BANDAGE = 200
+LANTERN = 201
+ARMOR = 202
+BOMB = 203
+HEAL_POTION = 204
 
 BLOCK_COLORS = {
     AIR: (0, 0, 0),
@@ -69,6 +75,7 @@ BLOCK_COLORS = {
     EYE: (200, 80, 200),
     WATER: (60, 120, 220),
     LAVA: (240, 90, 40),
+    FIBER: (120, 185, 90),
 }
 
 BLOCK_NAME = {
@@ -90,12 +97,14 @@ BLOCK_NAME = {
     EYE: "Eye",
     WATER: "Water",
     LAVA: "Lava",
+    FIBER: "Fiber",
 }
 
 SOLID = {DIRT, STONE, GRASS, WOOD, LEAF, COAL_ORE, IRON_ORE, GOLD_ORE, SAND, WORKBENCH, CHEST}
 LIQUIDS = {WATER, LAVA}
 PLACEABLE = {DIRT, STONE, GRASS, WOOD, LEAF, TORCH, WORKBENCH, CHEST, SAND}
 MINABLE = {DIRT, STONE, GRASS, WOOD, LEAF, COAL_ORE, IRON_ORE, GOLD_ORE, SAND, WORKBENCH, CHEST}
+USEABLE = {BANDAGE, LANTERN, ARMOR, BOMB, HEAL_POTION}
 
 ITEM_NAME = {
     DIRT: "Dirt",
@@ -114,6 +123,12 @@ ITEM_NAME = {
     102: "Wood Pickaxe",
     103: "Stone Pickaxe",
     104: "Iron Pickaxe",
+    FIBER: "Fiber",
+    BANDAGE: "Bandage",
+    LANTERN: "Lantern",
+    ARMOR: "Armor",
+    BOMB: "Bomb",
+    HEAL_POTION: "Heal Potion",
     SLIME_KING: "Slime King",
     ZOMBIE: "Zombie",
     BAT: "Bat",
@@ -141,6 +156,7 @@ HELP_LINES = [
     "Craft: Tab",
     "Chest: T",
     "Inventory: I",
+    "Use item: U",
     "Help: H",
     "Save/Load: F5 / F9",
 ]
@@ -153,6 +169,12 @@ RECIPES = [
     {"name": "Wood Pickaxe", "result": 102, "amount": 1, "requires": {WOOD: 10, 100: 3}, "station": WORKBENCH},
     {"name": "Stone Pickaxe", "result": 103, "amount": 1, "requires": {STONE: 12, 100: 3}, "station": WORKBENCH},
     {"name": "Iron Pickaxe", "result": 104, "amount": 1, "requires": {IRON_ORE: 10, 100: 4}, "station": WORKBENCH},
+    {"name": "Fiber", "result": FIBER, "amount": 4, "requires": {LEAF: 4}, "station": None},
+    {"name": "Bandage", "result": BANDAGE, "amount": 2, "requires": {FIBER: 2, 100: 1}, "station": None},
+    {"name": "Lantern", "result": LANTERN, "amount": 1, "requires": {TORCH: 4, IRON_ORE: 2}, "station": WORKBENCH},
+    {"name": "Armor", "result": ARMOR, "amount": 1, "requires": {IRON_ORE: 6, LEAF: 4}, "station": WORKBENCH},
+    {"name": "Bomb", "result": BOMB, "amount": 2, "requires": {STONE: 3, COAL_ORE: 2}, "station": WORKBENCH},
+    {"name": "Heal Potion", "result": HEAL_POTION, "amount": 1, "requires": {FIBER: 2, GOLD_ORE: 1, TORCH: 1}, "station": None},
 ]
 
 
@@ -489,6 +511,21 @@ def make_block_textures():
     }
 
 
+def make_item_textures():
+    textures = {}
+    textures[FIBER] = make_texture(TILE, (120, 185, 90), (165, 225, 130), 31)
+    textures[BANDAGE] = make_texture(TILE, (220, 210, 195), (245, 240, 225), 32)
+    textures[LANTERN] = make_texture(TILE, (170, 128, 58), (245, 200, 85), 33)
+    textures[ARMOR] = make_texture(TILE, (95, 110, 130), (160, 180, 200), 34)
+    textures[BOMB] = make_texture(TILE, (48, 48, 54), (98, 98, 108), 35)
+    textures[HEAL_POTION] = make_texture(TILE, (170, 62, 82), (240, 125, 150), 36)
+    return textures
+
+
+def item_surface(item, block_textures, item_textures):
+    return item_textures.get(item) or block_textures.get(item)
+
+
 def ensure_asset_dir():
     if not os.path.exists(ASSET_DIR):
         os.makedirs(ASSET_DIR, exist_ok=True)
@@ -730,8 +767,32 @@ def item_mining_power(player):
     return TOOL_POWER.get(player.equipped, 1)
 
 
+def armor_reduction(player):
+    return 0.10 if player.inventory.get(ARMOR, 0) > 0 else 0.0
+
+
 def give_item(player, item, amount):
     player.inventory[item] = player.inventory.get(item, 0) + amount
+
+
+def use_inventory_item(player, item):
+    if player.inventory.get(item, 0) <= 0:
+        return False
+    if item == BANDAGE:
+        player.health = min(100, player.health + 18)
+        player.inventory[item] -= 1
+        return True
+    if item == HEAL_POTION:
+        player.health = min(100, player.health + 35)
+        player.inventory[item] -= 1
+        return True
+    if item == BOMB:
+        player.inventory[item] -= 1
+        return True
+    if item == LANTERN:
+        player.equipped = LANTERN
+        return True
+    return False
 
 
 def compact_inventory(inv):
@@ -910,10 +971,12 @@ def main():
         pass
     sounds = make_audio()
     block_textures = make_block_textures()
+    item_textures = make_item_textures()
     player_sprite = make_player_sprite()
     sword_sprite = make_sword_sprite()
     far_parallax, mid_parallax = make_parallax_layers()
     save_texture_sheet("blocks", list(block_textures.values()))
+    save_texture_sheet("items", list(item_textures.values()))
     save_texture_sheet("sprites", [player_sprite, sword_sprite])
     slime_sprite = make_enemy_sprite("slime", False)
     slime_king_sprite = make_enemy_sprite("slime_king", True)
@@ -945,7 +1008,6 @@ def main():
     camera_y = 0.0
     bg = (130, 190, 255)
     selected_order = [DIRT, STONE, WOOD, TORCH, WORKBENCH, CHEST, SAND]
-    inventory_order = [DIRT, STONE, WOOD, LEAF, COAL_ORE, IRON_ORE, GOLD_ORE, SAND, TORCH, WORKBENCH, CHEST, 100, 101, 102, 103, 104]
     running = True
     action_cooldown = 0.0
     attack_flash = 0.0
@@ -1021,6 +1083,8 @@ def main():
                     help_open = not help_open
                 elif event.key == pygame.K_i:
                     inventory_open = not inventory_open
+                elif event.key == pygame.K_u:
+                    use_inventory_item(player, player.selected)
             elif event.type == pygame.MOUSEWHEEL and craft_panel_open:
                 craft_scroll = max(0, min(max(0, len(RECIPES) - 6), craft_scroll - event.y))
             elif event.type == pygame.MOUSEBUTTONDOWN:
@@ -1128,7 +1192,7 @@ def main():
         )
 
         if player.y > WORLD_H * TILE:
-            player.health -= 10 * dt
+            player.health -= 10 * (1 - armor_reduction(player)) * dt
             player.x, player.y = 12 * TILE, 10 * TILE
             player.vx = player.vy = 0
 
@@ -1141,7 +1205,7 @@ def main():
             player.vx *= 0.92
             player.vy *= 0.90
         if in_lava:
-            player.health -= 18 * dt
+            player.health -= 18 * (1 - armor_reduction(player)) * dt
             player.vx *= 0.85
 
         mouse = pygame.mouse.get_pos()
@@ -1192,13 +1256,13 @@ def main():
             enemy.vy -= 240 if player.equipped == 101 else 160
             play_sound(sounds, "swing")
             if enemy.health <= 0:
-                drop_table = [WOOD, STONE, COAL_ORE, IRON_ORE, 100, TORCH]
+                drop_table = [WOOD, STONE, COAL_ORE, IRON_ORE, 100, TORCH, FIBER]
                 if enemy.kind == "zombie":
-                    drop_table += [SAND, STONE, 100]
+                    drop_table += [SAND, STONE, 100, FIBER]
                 if enemy.kind == "eye":
-                    drop_table += [GOLD_ORE, GOLD_ORE, IRON_ORE]
+                    drop_table += [GOLD_ORE, GOLD_ORE, IRON_ORE, HEAL_POTION]
                 if enemy.boss:
-                    drop_table += [GOLD_ORE, GOLD_ORE, IRON_ORE, 101, 102, 103, 104, CHEST, WORKBENCH, TORCH]
+                    drop_table += [GOLD_ORE, GOLD_ORE, IRON_ORE, 101, 102, 103, 104, CHEST, WORKBENCH, TORCH, ARMOR, LANTERN, BOMB]
                 drops.append(Drop(enemy.x, enemy.y, random.choice(drop_table), random.randint(3, 8 if enemy.boss else 4), random.uniform(-80, 80), -160, life=60 if enemy.boss else 30))
                 play_sound(sounds, "hit")
                 if enemy.boss:
@@ -1220,6 +1284,8 @@ def main():
                         give_item(player, 100, 1)
                     if block == LEAF and random.random() < 0.2:
                         give_item(player, 100, 1)
+                    if block == LEAF and random.random() < 0.35:
+                        give_item(player, FIBER, 1)
                     if block == COAL_ORE:
                         give_item(player, COAL_ORE, 1)
                     if block == IRON_ORE:
@@ -1261,13 +1327,13 @@ def main():
                     enemy.vy -= 220 if player.equipped == 101 else 160
                     play_sound(sounds, "swing")
                     if enemy.health <= 0:
-                        drop_table = [WOOD, STONE, COAL_ORE, IRON_ORE, 100, TORCH]
+                        drop_table = [WOOD, STONE, COAL_ORE, IRON_ORE, 100, TORCH, FIBER]
                         if enemy.kind == "zombie":
-                            drop_table += [SAND, STONE, 100]
+                            drop_table += [SAND, STONE, 100, FIBER]
                         if enemy.kind == "eye":
-                            drop_table += [GOLD_ORE, GOLD_ORE, IRON_ORE]
+                            drop_table += [GOLD_ORE, GOLD_ORE, IRON_ORE, HEAL_POTION]
                         if enemy.boss:
-                            drop_table += [GOLD_ORE, GOLD_ORE, IRON_ORE, 101, 102, 103, 104, CHEST, WORKBENCH, TORCH]
+                            drop_table += [GOLD_ORE, GOLD_ORE, IRON_ORE, 101, 102, 103, 104, CHEST, WORKBENCH, TORCH, ARMOR, LANTERN, BOMB]
                         drops.append(Drop(enemy.x, enemy.y, random.choice(drop_table), random.randint(3, 8 if enemy.boss else 4), random.uniform(-80, 80), -160, life=60 if enemy.boss else 30))
                         play_sound(sounds, "hit")
                         if enemy.boss:
@@ -1326,7 +1392,7 @@ def main():
                 enemy.vy = max(-220, min(220, enemy.vy + math.sin(pygame.time.get_ticks() * 0.004) * 4))
             enemy.x, enemy.y, enemy.vx, enemy.vy, _ = move_entity(world, enemy.x, enemy.y, enemy.w, enemy.h, enemy.vx, enemy.vy, dt)
             if enemy.rect.colliderect(player.rect):
-                player.health -= 24 * dt
+                player.health -= 24 * (1 - armor_reduction(player)) * dt
                 push = 220 if player.x < enemy.x else -220
                 player.vx += push * dt
 
@@ -1427,7 +1493,11 @@ def main():
             glow = pygame.Surface((drop.w + 12, drop.h + 12), pygame.SRCALPHA)
             pygame.draw.ellipse(glow, (*color, 60), (0, 0, drop.w + 12, drop.h + 12))
             screen.blit(glow, (sx - 6, sy - 6))
-            pygame.draw.rect(screen, color, (sx, sy, drop.w, drop.h), border_radius=4)
+            tex = item_surface(drop.item, block_textures, item_textures)
+            if tex:
+                screen.blit(pygame.transform.smoothscale(tex, (drop.w, drop.h)), (sx, sy))
+            else:
+                pygame.draw.rect(screen, color, (sx, sy, drop.w, drop.h), border_radius=4)
             pygame.draw.rect(screen, (0, 0, 0), (sx, sy, drop.w, drop.h), 1, border_radius=4)
 
         for enemy in enemies:
@@ -1480,7 +1550,7 @@ def main():
             x = WIDTH // 2 - 235 + i * 72
             box = pygame.Rect(x, hotbar_y, 60, 36)
             pygame.draw.rect(screen, (48, 42, 36), box, border_radius=6)
-            tex = block_textures.get(block)
+            tex = item_surface(block, block_textures, item_textures)
             if tex:
                 scaled = pygame.transform.smoothscale(tex, (28, 20))
                 screen.blit(scaled, (box.x + 16, box.y + 8))
@@ -1506,7 +1576,7 @@ def main():
                 pygame.draw.rect(screen, (52, 48, 44), slot, border_radius=8)
                 if idx < len(inv_items):
                     item = inv_items[idx]
-                    tex = block_textures.get(item)
+                    tex = item_surface(item, block_textures, item_textures)
                     if tex:
                         screen.blit(pygame.transform.smoothscale(tex, (15, 15)), (slot.x + 6, slot.y + 6))
                     else:
@@ -1606,7 +1676,7 @@ def main():
                 pygame.draw.rect(screen, (58, 58, 58), slot, border_radius=8)
                 if idx < len(chest_items):
                     item = chest_items[idx]
-                    tex = block_textures.get(item)
+                    tex = item_surface(item, block_textures, item_textures)
                     if tex:
                         screen.blit(pygame.transform.smoothscale(tex, (26, 26)), (slot.x + 10, slot.y + 10))
                     else:
@@ -1618,7 +1688,7 @@ def main():
                 pygame.draw.rect(screen, (58, 58, 58), slot, border_radius=8)
                 if idx < len(inv_items):
                     item = inv_items[idx]
-                    tex = block_textures.get(item)
+                    tex = item_surface(item, block_textures, item_textures)
                     if tex:
                         screen.blit(pygame.transform.smoothscale(tex, (26, 26)), (slot.x + 10, slot.y + 10))
                     else:
