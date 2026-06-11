@@ -1629,6 +1629,12 @@ def main():
             if enemy.health <= 0:
                 continue
             sx, sy = world_to_screen(camera_x, camera_y, enemy.x, enemy.y)
+            aura = pygame.Surface((enemy.w + 18, enemy.h + 18), pygame.SRCALPHA)
+            aura_color = (120, 255, 140, 28) if enemy.kind == "slime" else (100, 120, 255, 24) if enemy.kind == "bat" else (230, 120, 255, 28) if enemy.kind == "eye" else (190, 255, 150, 22)
+            if enemy.boss:
+                aura_color = (255, 195, 70, 32)
+            pygame.draw.ellipse(aura, aura_color, (0, 0, enemy.w + 18, enemy.h + 18))
+            screen.blit(aura, (sx - 9, sy - 9))
             biome_sprite_key = enemy.kind
             if enemy.kind == "slime":
                 biome_sprite_key = "slime_forest" if biome == "forest" else "slime_desert" if biome == "desert" else "slime"
@@ -1655,8 +1661,9 @@ def main():
             if enemy.kind != "bat":
                 bar_w = max(18, enemy.w)
                 bar_x = sx + (enemy.w - bar_w) // 2
-                bar_y = sy - 8
-                hp_ratio = max(0.0, min(1.0, enemy.health / (240 if enemy.boss else 60 if enemy.kind == "slime_king" else 38 if enemy.kind == "zombie" else 20)))
+                bar_y = sy - 10
+                max_hp = 240 if enemy.kind == "slime_king" else 60 if enemy.kind == "eye" and enemy.boss else 38 if enemy.kind == "zombie" else 20
+                hp_ratio = max(0.0, min(1.0, enemy.health / max_hp))
                 pygame.draw.rect(screen, (22, 18, 18), (bar_x, bar_y, bar_w, 4), border_radius=2)
                 pygame.draw.rect(screen, (210, 70, 70) if not enemy.boss else (255, 180, 40), (bar_x, bar_y, int(bar_w * hp_ratio), 4), border_radius=2)
 
@@ -1695,6 +1702,7 @@ def main():
                 pygame.draw.rect(screen, BLOCK_COLORS[block], box.inflate(-16, -16))
             if player.selected == block:
                 pygame.draw.rect(screen, (255, 240, 100), box, 3, border_radius=6)
+                pygame.draw.rect(screen, (255, 255, 255), box.inflate(-8, -8), 1, border_radius=4)
             qty = player.inventory.get(block, 0)
             draw_text(screen, font, str(qty), x + 4, hotbar_y + 15, (255, 255, 255))
             draw_text(screen, font, str(i + 1), x + 42, hotbar_y + 2, (220, 220, 220))
