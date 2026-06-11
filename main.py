@@ -688,6 +688,7 @@ def make_enemy_sprite(kind, boss=False):
         pygame.draw.ellipse(surf, highlight, (4, 2, w - 10, h // 2))
         pygame.draw.arc(surf, shade, (2, 2, w - 4, h - 4), math.pi * 0.08, math.pi * 0.92, 2)
         pygame.draw.arc(surf, (255, 255, 255, 90), (5, 4, w - 16, h // 2), math.pi * 1.1, math.pi * 1.9, 2)
+        pygame.draw.circle(surf, (255, 255, 255, 55), (w // 2 - 4, 6), 4)
         if boss:
             crown = [(w // 2 - 16, 7), (w // 2 - 10, 0), (w // 2 - 4, 8), (w // 2 + 4, 0), (w // 2 + 10, 8), (w // 2 + 16, 1), (w // 2 + 22, 7)]
             pygame.draw.polygon(surf, (255, 228, 100), crown)
@@ -712,10 +713,14 @@ def make_enemy_sprite(kind, boss=False):
         pygame.draw.rect(surf, (100, 142, 80), (3, 10, 22, 16), border_radius=4)
         pygame.draw.rect(surf, (84, 108, 64), (1, 22, 26, 12), border_radius=4)
         pygame.draw.rect(surf, (58, 78, 48), (0, 31, 28, 12), border_radius=4)
+        pygame.draw.rect(surf, (140, 110, 82), (3, 16, 6, 5), border_radius=2)
+        pygame.draw.rect(surf, (140, 110, 82), (19, 15, 6, 5), border_radius=2)
         pygame.draw.circle(surf, (235, 220, 160), (10, 7), 2)
         pygame.draw.circle(surf, (235, 220, 160), (18, 7), 2)
         pygame.draw.circle(surf, (15, 15, 15), (11, 8), 1)
         pygame.draw.circle(surf, (15, 15, 15), (18, 8), 1)
+        pygame.draw.line(surf, (215, 195, 160), (9, 7), (9, 11), 1)
+        pygame.draw.line(surf, (215, 195, 160), (19, 7), (19, 11), 1)
         pygame.draw.line(surf, (68, 55, 34), (7, 14), (21, 14), 2)
         pygame.draw.line(surf, (75, 95, 55), (4, 28), (7, 42), 3)
         pygame.draw.line(surf, (75, 95, 55), (19, 28), (23, 42), 3)
@@ -727,6 +732,7 @@ def make_enemy_sprite(kind, boss=False):
         pygame.draw.polygon(surf, (100, 100, 130), [(0, 9), (9, 4), (12, 10), (9, 15)])
         pygame.draw.polygon(surf, (74, 74, 96), [(30, 9), (21, 4), (18, 10), (21, 15)])
         pygame.draw.ellipse(surf, (62, 62, 84), (10, 5, 10, 9))
+        pygame.draw.arc(surf, (48, 48, 64), (8, 6, 14, 7), math.pi, math.tau, 1)
         pygame.draw.circle(surf, (255, 255, 255), (13, 9), 1)
         pygame.draw.circle(surf, (255, 255, 255), (17, 9), 1)
         pygame.draw.line(surf, (35, 35, 45), (14, 14), (12, 18), 1)
@@ -743,6 +749,7 @@ def make_enemy_sprite(kind, boss=False):
         pygame.draw.arc(surf, (120, 40, 130), (4, 4, 24, 24), 0, math.tau, 2)
         pygame.draw.line(surf, (210, 130, 230), (7, 23), (11, 27), 2)
         pygame.draw.line(surf, (210, 130, 230), (25, 23), (21, 27), 2)
+        pygame.draw.line(surf, (255, 190, 255), (10, 7), (13, 10), 1)
         return surf
     return pygame.Surface((16, 16), pygame.SRCALPHA)
 
@@ -1631,12 +1638,17 @@ def main():
                 biome_sprite_key = "bat_cave" if in_cave else "bat"
             sprite = enemy_sprites.get((biome_sprite_key, enemy.boss)) or enemy_sprites.get((biome_sprite_key, False)) or enemy_sprites.get((enemy.kind, enemy.boss)) or enemy_sprites.get((enemy.kind, False))
             if sprite:
+                tick = pygame.time.get_ticks()
                 if enemy.kind == "eye":
-                    bob = int(math.sin(pygame.time.get_ticks() * 0.005 + enemy.x * 0.01) * 2)
-                    pulse = 1 + (math.sin(pygame.time.get_ticks() * 0.01) * 0.03)
+                    bob = int(math.sin(tick * 0.005 + enemy.x * 0.01) * 2)
+                    pulse = 1 + (math.sin(tick * 0.01 + enemy.y * 0.01) * 0.03)
                     screen.blit(pygame.transform.smoothscale(sprite, (int(sprite.get_width() * pulse), int(sprite.get_height() * pulse))), (sx - 1, sy + bob - 1))
+                elif enemy.kind == "slime":
+                    bob = int(math.sin(tick * 0.01 + enemy.x * 0.04) * 2)
+                    stretch = 1 + (math.sin(tick * 0.008 + enemy.x * 0.02) * 0.04)
+                    screen.blit(pygame.transform.smoothscale(sprite, (int(sprite.get_width() * stretch), int(sprite.get_height() * (1.0 / stretch)))), (sx, sy + bob))
                 else:
-                    flicker = int(math.sin(pygame.time.get_ticks() * 0.008 + enemy.x * 0.05) * 1)
+                    flicker = int(math.sin(tick * 0.008 + enemy.x * 0.05) * 1)
                     screen.blit(sprite, (sx, sy + flicker))
             else:
                 pygame.draw.ellipse(screen, (120, 220, 110), (sx, sy, enemy.w, enemy.h))
