@@ -1749,7 +1749,7 @@ def main():
                         mini.set_at((mx, my), tuple(max(0, c - 10) for c in color))
         pxm = int(player.x / (WORLD_W * TILE) * MINIMAP_W)
         pym = int(player.y / (WORLD_H * TILE) * MINIMAP_H)
-        pygame.draw.circle(mini, (255, 255, 255), (pxm, pym), 2)
+        pygame.draw.polygon(mini, (255, 255, 255), [(pxm, pym - 3), (pxm - 2, pym + 2), (pxm + 2, pym + 2)])
         for enemy in enemies:
             if enemy.health > 0:
                 ex = int(enemy.x / (WORLD_W * TILE) * MINIMAP_W)
@@ -1774,6 +1774,8 @@ def main():
                     pygame.draw.circle(mini, icon, (px, py), 3 if enemy.boss else 2)
                 else:
                     pygame.draw.rect(mini, icon, (px - 1, py - 1, 3 if not enemy.boss else 4, 3 if not enemy.boss else 4))
+                if enemy.boss:
+                    pygame.draw.circle(mini, (255, 240, 140), (px, py), 5, 1)
         screen.blit(mini, (mmx, mmy))
         pygame.draw.rect(screen, (0, 0, 0), (mmx, mmy, MINIMAP_W, MINIMAP_H), 2)
 
