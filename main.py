@@ -1715,10 +1715,17 @@ def main():
                     item = inv_items[idx]
                     tex = item_surface(item, block_textures, item_textures)
                     if tex:
-                        screen.blit(pygame.transform.smoothscale(tex, (15, 15)), (slot.x + 6, slot.y + 6))
+                        icon = pygame.transform.smoothscale(tex, (15, 15))
+                        icon.set_alpha(235)
+                        screen.blit(icon, (slot.x + 6, slot.y + 6))
                     else:
                         pygame.draw.rect(screen, BLOCK_COLORS.get(item, (255, 255, 255)), slot.inflate(-16, -16))
-                    draw_text(screen, font, str(player.inventory[item]), slot.x + 1, slot.y + 14, (255, 255, 255))
+                    qty = player.inventory[item]
+                    if qty > 0:
+                        badge = pygame.Surface((18, 12), pygame.SRCALPHA)
+                        pygame.draw.rect(badge, (0, 0, 0, 150), (0, 0, 18, 12), border_radius=4)
+                        screen.blit(badge, (slot.right - 18, slot.bottom - 12))
+                        draw_text(screen, font, str(qty), slot.right - 15, slot.bottom - 12, (255, 255, 255))
                     if player.inventory[item] > 1:
                         pygame.draw.circle(screen, (255, 255, 255), (slot.right - 7, slot.top + 7), 3)
                 pygame.draw.rect(screen, (0, 0, 0), slot, 1, border_radius=8)
@@ -1756,7 +1763,17 @@ def main():
                     icon = (120, 200, 120)
                 if enemy.boss:
                     icon = (255, 180, 40)
-                pygame.draw.circle(mini, icon, (max(0, min(MINIMAP_W - 1, ex)), max(0, min(MINIMAP_H - 1, ey))), 2 if not enemy.boss else 3)
+                px = max(0, min(MINIMAP_W - 1, ex))
+                py = max(0, min(MINIMAP_H - 1, ey))
+                if enemy.kind == "bat":
+                    pygame.draw.polygon(mini, icon, [(px - 2, py), (px, py - 2), (px + 2, py), (px, py + 2)])
+                elif enemy.kind == "eye":
+                    pygame.draw.circle(mini, icon, (px, py), 3 if enemy.boss else 2)
+                    pygame.draw.circle(mini, (255, 255, 255), (px, py), 1)
+                elif enemy.kind == "slime":
+                    pygame.draw.circle(mini, icon, (px, py), 3 if enemy.boss else 2)
+                else:
+                    pygame.draw.rect(mini, icon, (px - 1, py - 1, 3 if not enemy.boss else 4, 3 if not enemy.boss else 4))
         screen.blit(mini, (mmx, mmy))
         pygame.draw.rect(screen, (0, 0, 0), (mmx, mmy, MINIMAP_W, MINIMAP_H), 2)
 
@@ -1815,10 +1832,16 @@ def main():
                     item = chest_items[idx]
                     tex = item_surface(item, block_textures, item_textures)
                     if tex:
-                        screen.blit(pygame.transform.smoothscale(tex, (26, 26)), (slot.x + 10, slot.y + 10))
+                        icon = pygame.transform.smoothscale(tex, (26, 26))
+                        icon.set_alpha(235)
+                        screen.blit(icon, (slot.x + 10, slot.y + 10))
                     else:
                         pygame.draw.rect(screen, BLOCK_COLORS.get(item, (255, 255, 255)), slot.inflate(-14, -14))
-                    draw_text(screen, font, str(chest[item]), slot.x + 4, slot.y + 26, (255, 255, 255))
+                    qty = chest[item]
+                    badge = pygame.Surface((20, 14), pygame.SRCALPHA)
+                    pygame.draw.rect(badge, (0, 0, 0, 150), (0, 0, 20, 14), border_radius=4)
+                    screen.blit(badge, (slot.right - 20, slot.bottom - 14))
+                    draw_text(screen, font, str(qty), slot.right - 17, slot.bottom - 13, (255, 255, 255))
                 pygame.draw.rect(screen, (0, 0, 0), slot, 1, border_radius=8)
             for idx in range(INVENTORY_CAPACITY):
                 slot = inventory_slot_rect(idx, right_grid.x + 12, right_grid.y + 12, slot_size=46, gap=6, columns=INVENTORY_COLUMNS)
@@ -1827,10 +1850,16 @@ def main():
                     item = inv_items[idx]
                     tex = item_surface(item, block_textures, item_textures)
                     if tex:
-                        screen.blit(pygame.transform.smoothscale(tex, (26, 26)), (slot.x + 10, slot.y + 10))
+                        icon = pygame.transform.smoothscale(tex, (26, 26))
+                        icon.set_alpha(235)
+                        screen.blit(icon, (slot.x + 10, slot.y + 10))
                     else:
                         pygame.draw.rect(screen, BLOCK_COLORS.get(item, (255, 255, 255)), slot.inflate(-14, -14))
-                    draw_text(screen, font, str(player.inventory[item]), slot.x + 4, slot.y + 26, (255, 255, 255))
+                    qty = player.inventory[item]
+                    badge = pygame.Surface((20, 14), pygame.SRCALPHA)
+                    pygame.draw.rect(badge, (0, 0, 0, 150), (0, 0, 20, 14), border_radius=4)
+                    screen.blit(badge, (slot.right - 20, slot.bottom - 14))
+                    draw_text(screen, font, str(qty), slot.right - 17, slot.bottom - 13, (255, 255, 255))
                 pygame.draw.rect(screen, (0, 0, 0), slot, 1, border_radius=8)
             draw_text(screen, font, "Drag and drop items between the two panels", panel.x + 16, panel.y + 446, (220, 220, 220))
 
