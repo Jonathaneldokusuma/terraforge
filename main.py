@@ -513,12 +513,77 @@ def make_block_textures():
 
 def make_item_textures():
     textures = {}
-    textures[FIBER] = make_texture(TILE, (120, 185, 90), (165, 225, 130), 31)
-    textures[BANDAGE] = make_texture(TILE, (220, 210, 195), (245, 240, 225), 32)
-    textures[LANTERN] = make_texture(TILE, (170, 128, 58), (245, 200, 85), 33)
-    textures[ARMOR] = make_texture(TILE, (95, 110, 130), (160, 180, 200), 34)
-    textures[BOMB] = make_texture(TILE, (48, 48, 54), (98, 98, 108), 35)
-    textures[HEAL_POTION] = make_texture(TILE, (170, 62, 82), (240, 125, 150), 36)
+
+    fiber = pygame.Surface((TILE, TILE), pygame.SRCALPHA)
+    for i in range(7):
+        pygame.draw.arc(fiber, (120, 190, 95), (3 + i, 6, 22, 18), 0.5, 3.8, 2)
+    pygame.draw.circle(fiber, (185, 230, 150), (16, 11), 3)
+    textures[FIBER] = fiber
+
+    stick = pygame.Surface((TILE, TILE), pygame.SRCALPHA)
+    pygame.draw.line(stick, (155, 110, 70), (6, 22), (24, 8), 4)
+    pygame.draw.line(stick, (120, 82, 46), (7, 23), (25, 9), 2)
+    textures[100] = stick
+
+    sword = pygame.Surface((TILE, TILE), pygame.SRCALPHA)
+    pygame.draw.polygon(sword, (225, 225, 235), [(8, 5), (22, 11), (8, 17), (5, 15), (6, 10)])
+    pygame.draw.rect(sword, (160, 115, 70), (5, 11, 5, 6), border_radius=2)
+    pygame.draw.rect(sword, (105, 70, 40), (9, 8, 4, 10), border_radius=2)
+    textures[101] = sword
+
+    pickaxe_wood = pygame.Surface((TILE, TILE), pygame.SRCALPHA)
+    pygame.draw.line(pickaxe_wood, (140, 95, 55), (10, 24), (18, 6), 4)
+    pygame.draw.line(pickaxe_wood, (210, 210, 220), (9, 8), (21, 14), 4)
+    pygame.draw.line(pickaxe_wood, (170, 170, 180), (10, 8), (22, 14), 2)
+    textures[102] = pickaxe_wood
+
+    pickaxe_stone = pygame.Surface((TILE, TILE), pygame.SRCALPHA)
+    pygame.draw.line(pickaxe_stone, (145, 100, 60), (10, 24), (18, 6), 4)
+    pygame.draw.line(pickaxe_stone, (160, 170, 180), (9, 8), (21, 14), 5)
+    pygame.draw.line(pickaxe_stone, (100, 105, 115), (9, 8), (21, 14), 2)
+    textures[103] = pickaxe_stone
+
+    pickaxe_iron = pygame.Surface((TILE, TILE), pygame.SRCALPHA)
+    pygame.draw.line(pickaxe_iron, (150, 103, 60), (10, 24), (18, 6), 4)
+    pygame.draw.line(pickaxe_iron, (205, 215, 225), (9, 8), (21, 14), 5)
+    pygame.draw.line(pickaxe_iron, (130, 140, 150), (9, 8), (21, 14), 2)
+    textures[104] = pickaxe_iron
+
+    bandage = pygame.Surface((TILE, TILE), pygame.SRCALPHA)
+    pygame.draw.rect(bandage, (230, 220, 205), (7, 12, 18, 8), border_radius=3)
+    pygame.draw.rect(bandage, (200, 185, 170), (10, 5, 8, 22), border_radius=3)
+    pygame.draw.line(bandage, (170, 155, 145), (7, 16), (24, 16), 2)
+    textures[BANDAGE] = bandage
+
+    lantern = pygame.Surface((TILE, TILE), pygame.SRCALPHA)
+    pygame.draw.rect(lantern, (120, 85, 45), (13, 4, 4, 6), border_radius=2)
+    pygame.draw.rect(lantern, (155, 110, 55), (10, 9, 10, 13), border_radius=4)
+    pygame.draw.circle(lantern, (255, 214, 95), (15, 16), 6)
+    pygame.draw.circle(lantern, (255, 245, 190), (15, 16), 3)
+    pygame.draw.rect(lantern, (95, 70, 40), (8, 20, 14, 4), border_radius=2)
+    textures[LANTERN] = lantern
+
+    armor = pygame.Surface((TILE, TILE), pygame.SRCALPHA)
+    pygame.draw.polygon(armor, (110, 125, 145), [(16, 4), (23, 9), (20, 24), (8, 24), (5, 9)])
+    pygame.draw.polygon(armor, (175, 190, 210), [(16, 6), (21, 10), (19, 21), (13, 21), (10, 10)])
+    pygame.draw.line(armor, (85, 95, 110), (12, 8), (12, 23), 2)
+    pygame.draw.line(armor, (85, 95, 110), (20, 8), (20, 23), 2)
+    textures[ARMOR] = armor
+
+    bomb = pygame.Surface((TILE, TILE), pygame.SRCALPHA)
+    pygame.draw.circle(bomb, (60, 60, 66), (15, 16), 8)
+    pygame.draw.circle(bomb, (95, 95, 104), (12, 13), 3)
+    pygame.draw.line(bomb, (120, 95, 50), (18, 8), (22, 4), 3)
+    pygame.draw.line(bomb, (255, 220, 90), (22, 4), (25, 2), 2)
+    textures[BOMB] = bomb
+
+    potion = pygame.Surface((TILE, TILE), pygame.SRCALPHA)
+    pygame.draw.rect(potion, (225, 225, 235), (11, 5, 8, 4), border_radius=2)
+    pygame.draw.polygon(potion, (180, 70, 90), [(12, 8), (20, 8), (22, 22), (10, 22)])
+    pygame.draw.circle(potion, (240, 120, 150), (16, 16), 6)
+    pygame.draw.circle(potion, (255, 200, 210), (13, 13), 2)
+    textures[HEAL_POTION] = potion
+
     return textures
 
 
