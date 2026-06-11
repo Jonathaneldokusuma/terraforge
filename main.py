@@ -880,6 +880,20 @@ def inventory_items(inv):
     return [item for item, amount in inv.items() if amount > 0]
 
 
+def reorder_inventory_swap(inv, item_a, item_b):
+    if item_a not in inv or item_b not in inv or item_a == item_b:
+        return inv
+    items = list(inv.items())
+    ia = next((i for i, (k, _) in enumerate(items) if k == item_a), None)
+    ib = next((i for i, (k, _) in enumerate(items) if k == item_b), None)
+    if ia is None or ib is None:
+        return inv
+    items[ia], items[ib] = items[ib], items[ia]
+    inv.clear()
+    inv.update(items)
+    return inv
+
+
 def inventory_slot_rect(index, x, y, slot_size=44, gap=6, columns=INVENTORY_COLUMNS):
     col = index % columns
     row = index // columns
@@ -1097,6 +1111,7 @@ def main():
     drag_source = None
     drag_item = None
     drag_from = None
+    drag_slot_index = None
     inventory_open = True
     hotbar_locked = False
     boss_spawned = any(e.boss for e in enemies)
@@ -1182,6 +1197,7 @@ def main():
                             if idx is not None:
                                 drag_item = slot_item(player.inventory, idx)
                                 drag_from = "player" if drag_item is not None else None
+                                drag_slot_index = idx if drag_item is not None else None
                     elif chest_panel_open and chest_target:
                         tx, ty = chest_target
                         chest = chest_inventory(chest_storage, tx, ty)
@@ -1193,6 +1209,7 @@ def main():
                                 if idx < len(chest_items):
                                     drag_item = chest_items[idx]
                                     drag_from = "chest"
+                                    drag_slot_index = idx
                 elif event.button == 3 and chest_panel_open and chest_target:
                     tx, ty = chest_target
                     chest = chest_inventory(chest_storage, tx, ty)
@@ -1215,6 +1232,7 @@ def main():
             elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
                 if drag_item is not None and drag_from is not None:
                     mx, my = event.pos
+                    handled = False
                     if chest_panel_open and chest_target:
                         tx, ty = chest_target
                         chest = chest_inventory(chest_storage, tx, ty)
@@ -1222,11 +1240,34 @@ def main():
                         chest_rect = pygame.Rect(panel.x + 24, panel.y + 78, 360, 290)
                         inv_rect = pygame.Rect(panel.x + 560, panel.y + 78, 360, 290)
                         if drag_from == "player" and chest_rect.collidepoint(mx, my):
-                            move_stack(player.inventory, chest, drag_item, player.inventory.get(drag_item, 0))
+                            idx = inventory_slot_at(event.pos, chest_rect.x, chest_rect.y, INVENTORY_CAPACITY, columns=INVENTORY_COLUMNS)
+                            chest_items = inventory_items(chest)
+                            if idx is not None and idx < len(chest_items):
+                                target_item = chest_items[idx]
+                                if target_item != drag_item:
+                                    chest[drag_item], player.inventory[target_item] = player.inventory.get(drag_item, 0), chest.get(target_item, 0)
+                                    reorder_inventory_swap(chest, target_item, drag_item)
+                                    reorder_inventory_swap(player.inventory, drag_item, target_item)
+                                    handled = True
+                            if not handled:
+                                move_stack(player.inventory, chest, drag_item, player.inventory.get(drag_item, 0))
+                                handled = True
                         elif drag_from == "chest" and inv_rect.collidepoint(mx, my):
-                            move_stack(chest, player.inventory, drag_item, chest.get(drag_item, 0))
+                            idx = inventory_slot_at(event.pos, inv_rect.x, inv_rect.y, INVENTORY_CAPACITY, columns=INVENTORY_COLUMNS)
+                            inv_items = inventory_items(player.inventory)
+                            if idx is not None and idx < len(inv_items):
+                                target_item = inv_items[idx]
+                                if target_item != drag_item:
+                                    player.inventory[drag_item], chest[target_item] = chest.get(drag_item, 0), player.inventory.get(target_item, 0)
+                                    reorder_inventory_swap(player.inventory, target_item, drag_item)
+                                    reorder_inventory_swap(chest, drag_item, target_item)
+                                    handled = True
+                            if not handled:
+                                move_stack(chest, player.inventory, drag_item, chest.get(drag_item, 0))
+                                handled = True
                     drag_item = None
                     drag_from = None
+                    drag_slot_index = None
 
         keys = pygame.key.get_pressed()
         if title_screen:
@@ -1783,7 +1824,11 @@ def main():
 
         if drag_item is not None:
             mx, my = pygame.mouse.get_pos()
-            pygame.draw.rect(screen, BLOCK_COLORS.get(drag_item, (255, 255, 255)), (mx - 16, my - 16, 32, 32), border_radius=6)
+            tex = item_surface(drag_item, block_textures, item_textures)
+            if tex:
+                screen.blit(pygame.transform.smoothscale(tex, (32, 32)), (mx - 16, my - 16))
+            else:
+                pygame.draw.rect(screen, BLOCK_COLORS.get(drag_item, (255, 255, 255)), (mx - 16, my - 16, 32, 32), border_radius=6)
 
         # Lighting vignette
         vignette = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
