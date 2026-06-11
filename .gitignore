@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+savegame.json
+*.log
+.venv/
+venv/
