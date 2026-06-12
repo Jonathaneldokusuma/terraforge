@@ -370,23 +370,17 @@ def new_world():
         if 2 < surface[x] < WORLD_H - 8 and rnd.random() < 0.45:
             top = surface[x]
             trunk_h = rnd.randint(4, 7)
-            if all(world[x][top - i] == AIR for i in range(1, trunk_h + 1)):
-                base_y = top
-                for dy in range(1, 3):
-                    if top + dy < WORLD_H and world[x][top + dy] == AIR:
-                        world[x][top + dy] = DIRT if dy == 1 else STONE
-                world[x][top] = GRASS if world[x][top] == AIR else world[x][top]
-            for i in range(1, trunk_h + 1):
-                if top - i >= 0:
+            if can_place_tree(world, x, top, trunk_h):
+                for i in range(1, trunk_h + 1):
                     world[x][top - i] = WOOD
-            crown_y = top - trunk_h - 2
-            for dx in range(-2, 3):
-                for dy in range(-2, 3):
-                    ax = x + dx
-                    ay = crown_y + dy
-                    if 0 <= ax < WORLD_W and 0 <= ay < WORLD_H and abs(dx) + abs(dy) < 4:
-                        if world[ax][ay] == AIR:
-                            world[ax][ay] = LEAF
+                crown_y = top - trunk_h - 2
+                for dx in range(-2, 3):
+                    for dy in range(-2, 3):
+                        ax = x + dx
+                        ay = crown_y + dy
+                        if 0 <= ax < WORLD_W and 0 <= ay < WORLD_H and abs(dx) + abs(dy) < 4:
+                            if world[ax][ay] == AIR:
+                                world[ax][ay] = LEAF
 
     for _ in range(5):
         x = rnd.randint(6, WORLD_W - 7)
@@ -403,6 +397,8 @@ def new_world():
         biome = "forest" if x < WORLD_W * 0.4 else "desert" if x < WORLD_W * 0.7 else "mountain"
         top_block = SAND if biome == "desert" else GRASS
         sub_block = SAND if biome == "desert" else DIRT
+        if top + 1 < WORLD_H and world[x][top] in (WOOD, LEAF):
+            world[x][top] = top_block
         if world[x][top] == AIR:
             world[x][top] = top_block
         if world[x][top] in (GRASS, SAND):
@@ -499,6 +495,22 @@ def seal_surface_layer(world, surface):
             for y in range(max(0, surface[x] - 6), min(WORLD_H, surface[x] + 2)):
                 if world[x][y] == GRASS:
                     world[x][y] = SAND
+
+
+def can_place_tree(world, x, top, trunk_h):
+    if top < 4 or top >= WORLD_H - 2:
+        return False
+    if world[x][top] not in (GRASS, SAND):
+        return False
+    # Require a solid ground block beneath the surface.
+    if top + 1 >= WORLD_H or world[x][top + 1] == AIR:
+        return False
+    # Ensure the full trunk and crown space are clear.
+    for dy in range(1, trunk_h + 4):
+        ty = top - dy
+        if ty < 0 or world[x][ty] != AIR:
+            return False
+    return True
 
 
 def spawn_enemies(world, surface):
