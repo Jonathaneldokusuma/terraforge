@@ -413,6 +413,8 @@ def new_world():
             if world[x][y] == AIR and world[x][y + 1] != AIR and world[x][y - 1] != AIR:
                 world[x][y] = DIRT if y > top else GRASS
 
+    seal_surface_layer(world, surface)
+
     return world, surface
 
 
@@ -460,6 +462,22 @@ def place_liquid_pool(world, rnd, liquid, count, min_y, max_y, min_distance=12, 
                             world[tx][ty] = liquid
             placed.append((x, y))
             break
+
+
+def seal_surface_layer(world, surface):
+    for x in range(WORLD_W):
+        top = surface[x]
+        biome = "forest" if x < WORLD_W * 0.4 else "desert" if x < WORLD_W * 0.7 else "mountain"
+        top_block = SAND if biome == "desert" else GRASS
+        sub_block = SAND if biome == "desert" else DIRT
+        for y in range(max(0, top - 4), min(WORLD_H, top + 3)):
+            if world[x][y] == AIR:
+                world[x][y] = top_block if y <= top else sub_block
+        if 0 <= top < WORLD_H and world[x][top] == AIR:
+            world[x][top] = top_block
+        for y in range(top + 1, min(WORLD_H, top + 4)):
+            if world[x][y] == AIR:
+                world[x][y] = sub_block
 
 
 def spawn_enemies(world, surface):
