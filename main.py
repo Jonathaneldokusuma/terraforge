@@ -400,9 +400,14 @@ def new_world():
     # Restore any accidental floating tree leaves or trunks by attaching to solid ground.
     for x in range(1, WORLD_W - 1):
         top = surface[x]
+        biome = "forest" if x < WORLD_W * 0.4 else "desert" if x < WORLD_W * 0.7 else "mountain"
+        top_block = SAND if biome == "desert" else GRASS
+        sub_block = SAND if biome == "desert" else DIRT
         if world[x][top] == AIR:
-            world[x][top] = GRASS if x < WORLD_W * 0.7 else SAND
+            world[x][top] = top_block
         if world[x][top] in (GRASS, SAND):
+            if biome == "desert" and world[x][top] == GRASS:
+                world[x][top] = SAND
             for y in range(top - 1, max(0, top - 8), -1):
                 if world[x][y] == WOOD:
                     continue
@@ -411,7 +416,7 @@ def new_world():
         # Seal isolated one-tile cavities just above the surface.
         for y in range(max(1, top - 2), min(WORLD_H - 1, top + 2)):
             if world[x][y] == AIR and world[x][y + 1] != AIR and world[x][y - 1] != AIR:
-                world[x][y] = DIRT if y > top else GRASS
+                world[x][y] = sub_block if y > top else top_block
 
     seal_surface_layer(world, surface)
 
@@ -478,6 +483,22 @@ def seal_surface_layer(world, surface):
         for y in range(top + 1, min(WORLD_H, top + 4)):
             if world[x][y] == AIR:
                 world[x][y] = sub_block
+
+    for x in range(1, WORLD_W - 1):
+        left = surface[x - 1]
+        mid = surface[x]
+        right = surface[x + 1]
+        target = (left + mid + right) // 3
+        for y in range(min(left, mid, right), max(left, mid, right) + 1):
+            if 0 <= y < WORLD_H and world[x][y] == AIR and abs(y - target) <= 3:
+                world[x][y] = SAND if x < WORLD_W * 0.7 else GRASS
+
+    for x in range(1, WORLD_W - 1):
+        biome = "forest" if x < WORLD_W * 0.4 else "desert" if x < WORLD_W * 0.7 else "mountain"
+        if biome == "desert":
+            for y in range(max(0, surface[x] - 6), min(WORLD_H, surface[x] + 2)):
+                if world[x][y] == GRASS:
+                    world[x][y] = SAND
 
 
 def spawn_enemies(world, surface):
