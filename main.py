@@ -433,31 +433,6 @@ def new_world():
                 if y + dy < WORLD_H and world[x][y + dy] == DIRT:
                     world[x][y + dy] = SAND
 
-    # Restore any accidental floating tree leaves or trunks by attaching to solid ground.
-    for x in range(1, WORLD_W - 1):
-        top = find_tree_anchor(world, x)
-        if top is None:
-            continue
-        biome = terrain_profile_for_x(x)["biome"]
-        top_block = SAND if biome == "desert" else GRASS
-        sub_block = SAND if biome == "desert" else DIRT
-        if top + 1 < WORLD_H and world[x][top] in (WOOD, LEAF):
-            world[x][top] = top_block
-        if world[x][top] == AIR:
-            world[x][top] = top_block
-        if world[x][top] in (GRASS, SAND):
-            if biome == "desert" and world[x][top] == GRASS:
-                world[x][top] = SAND
-            for y in range(top - 1, max(0, top - 8), -1):
-                if world[x][y] == WOOD:
-                    continue
-                if world[x][y] == LEAF and y > top - 8:
-                    continue
-        # Seal isolated one-tile cavities just above the surface.
-        for y in range(max(1, top - 2), min(WORLD_H - 1, top + 2)):
-            if world[x][y] == AIR and world[x][y + 1] != AIR and world[x][y - 1] != AIR:
-                world[x][y] = sub_block if y > top else top_block
-
     seal_surface_layer(world, surface)
 
     return world, surface
@@ -558,7 +533,7 @@ def can_place_tree(world, x, top, trunk_h):
 
 
 def find_tree_anchor(world, x):
-    for y in range(WORLD_H - 1, 0, -1):
+    for y in range(0, WORLD_H):
         if world[x][y] in (GRASS, SAND):
             return y
     return None
