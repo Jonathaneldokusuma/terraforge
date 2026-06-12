@@ -409,8 +409,8 @@ def new_world():
     for _ in range(18):
         x = rnd.randint(8, WORLD_W - 9)
         profile = terrain_profile_for_x(x)
-        if profile["biome"] != "desert" and 2 < surface[x] < WORLD_H - 8 and rnd.random() < 0.45:
-            top = surface[x]
+        top = find_tree_anchor(world, x)
+        if profile["biome"] != "desert" and top is not None and 2 < top < WORLD_H - 8 and rnd.random() < 0.45:
             trunk_h = rnd.randint(4, 7)
             if can_place_tree(world, x, top, trunk_h):
                 for i in range(1, trunk_h + 1):
@@ -435,7 +435,9 @@ def new_world():
 
     # Restore any accidental floating tree leaves or trunks by attaching to solid ground.
     for x in range(1, WORLD_W - 1):
-        top = surface[x]
+        top = find_tree_anchor(world, x)
+        if top is None:
+            continue
         biome = terrain_profile_for_x(x)["biome"]
         top_block = SAND if biome == "desert" else GRASS
         sub_block = SAND if biome == "desert" else DIRT
@@ -553,6 +555,13 @@ def can_place_tree(world, x, top, trunk_h):
         if ty < 0 or world[x][ty] != AIR:
             return False
     return True
+
+
+def find_tree_anchor(world, x):
+    for y in range(WORLD_H - 1, 0, -1):
+        if world[x][y] in (GRASS, SAND):
+            return y
+    return None
 
 
 def terrain_profile_for_x(x):
