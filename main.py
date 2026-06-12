@@ -311,14 +311,24 @@ def new_world():
             elif roll < 0.105:
                 world[x][y] = GOLD_ORE
 
-    for _ in range(8):
-        x = rnd.randint(8, WORLD_W - 8)
-        y = rnd.randint(26, WORLD_H - 10)
-        for dx in range(-3, 4):
-            for dy in range(-2, 3):
-                tx, ty = x + dx, y + dy
-                if 0 <= tx < WORLD_W and 0 <= ty < WORLD_H and world[tx][ty] == STONE:
-                    world[tx][ty] = WATER if rnd.random() < 0.7 else LAVA
+    place_liquid_pool(world, rnd, WATER, count=6, min_y=24, max_y=WORLD_H - 14, min_distance=16)
+    place_liquid_pool(world, rnd, LAVA, count=5, min_y=WORLD_H // 2 + 4, max_y=WORLD_H - 10, min_distance=18)
+
+    # Keep liquids from touching each other by carving a small neutral buffer around them.
+    for x in range(1, WORLD_W - 1):
+        for y in range(1, WORLD_H - 1):
+            if world[x][y] == WATER:
+                for dx in range(-2, 3):
+                    for dy in range(-2, 3):
+                        tx, ty = x + dx, y + dy
+                        if 0 <= tx < WORLD_W and 0 <= ty < WORLD_H and world[tx][ty] == LAVA:
+                            world[tx][ty] = STONE
+            elif world[x][y] == LAVA:
+                for dx in range(-2, 3):
+                    for dy in range(-2, 3):
+                        tx, ty = x + dx, y + dy
+                        if 0 <= tx < WORLD_W and 0 <= ty < WORLD_H and world[tx][ty] == WATER:
+                            world[tx][ty] = STONE
 
     for _ in range(10):
         x = rnd.randint(8, WORLD_W - 9)
@@ -371,6 +381,34 @@ def carve_cave(world, cx, cy, radius, steps):
         x = max(2, min(WORLD_W - 3, x))
         y = max(20, min(WORLD_H - 3, y))
         radius = max(3, min(10, radius + random.choice([-1, 0, 0, 1, 1])))
+
+
+def place_liquid_pool(world, rnd, liquid, count, min_y, max_y, min_distance=12, attempts_per_pool=10):
+    placed = []
+    for _ in range(count):
+        for _attempt in range(attempts_per_pool):
+            x = rnd.randint(8, WORLD_W - 9)
+            y = rnd.randint(min_y, max_y)
+            if any(abs(x - px) < min_distance and abs(y - py) < min_distance for px, py in placed):
+                continue
+            if liquid == WATER:
+                if x > WORLD_W * 0.65:
+                    continue
+                if y > WORLD_H - 20:
+                    continue
+            else:
+                if x < WORLD_W * 0.55:
+                    continue
+                if y < WORLD_H // 2:
+                    continue
+            for dx in range(-3, 4):
+                for dy in range(-2, 3):
+                    tx, ty = x + dx, y + dy
+                    if 0 <= tx < WORLD_W and 0 <= ty < WORLD_H and world[tx][ty] == STONE:
+                        if abs(tx - x) + abs(ty - y) <= 5:
+                            world[tx][ty] = liquid
+            placed.append((x, y))
+            break
 
 
 def spawn_enemies(world, surface):
