@@ -406,11 +406,11 @@ def new_world():
             if world[x][y - 1] == AIR and world[x][y - 2] != AIR and rnd.random() < 0.28:
                 world[x][y - 1] = CHEST
 
-    for _ in range(18):
-        x = rnd.randint(8, WORLD_W - 9)
-        profile = terrain_profile_for_x(x)
-        top = find_tree_anchor(world, x)
-        if profile["biome"] != "desert" and top is not None and 2 < top < WORLD_H - 8 and rnd.random() < 0.45:
+    for x in range(8, int(WORLD_W * 0.38), 3):
+        if rnd.random() < 0.22:
+            top = find_tree_anchor(world, x)
+            if top is None:
+                continue
             trunk_h = rnd.randint(4, 7)
             if can_place_tree(world, x, top, trunk_h):
                 for i in range(1, trunk_h + 1):
