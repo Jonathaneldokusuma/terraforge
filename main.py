@@ -274,7 +274,7 @@ def new_world():
     surface = []
     h = WORLD_H // 2 + 8
     for x in range(WORLD_W):
-        h += rnd.choice([-2, -1, 0, 0, 1, 1, 2]) if x else 0
+        h += rnd.choice([-1, 0, 0, 0, 1, 1]) if x else 0
         h = max(18, min(WORLD_H - 16, h))
         surface.append(h)
         biome = "forest" if x < WORLD_W * 0.4 else "desert" if x < WORLD_W * 0.7 else "mountain"
@@ -286,18 +286,46 @@ def new_world():
             else:
                 world[x][y] = STONE
 
-    for x in range(2, WORLD_W - 2):
-        if rnd.random() < 0.06:
-            depth = rnd.randint(1, 5)
-            for y in range(surface[x] + depth, WORLD_H):
-                if y < WORLD_H - 18 or rnd.random() > 0.5:
-                    world[x][y] = AIR
+    # Smooth abrupt height spikes so the land doesn't look torn apart.
+    smoothed = surface[:]
+    for x in range(1, WORLD_W - 1):
+        local = (surface[x - 1] + surface[x] + surface[x + 1]) // 3
+        smoothed[x] = max(18, min(WORLD_H - 16, local))
+    for x in range(WORLD_W):
+        surface[x] = smoothed[x]
+        biome = "forest" if x < WORLD_W * 0.4 else "desert" if x < WORLD_W * 0.7 else "mountain"
+        for y in range(0, surface[x]):
+            world[x][y] = AIR
+        for y in range(surface[x], WORLD_H):
+            if y == surface[x]:
+                world[x][y] = SAND if biome == "desert" else GRASS
+            elif y < surface[x] + 4:
+                world[x][y] = SAND if biome == "desert" else DIRT
+            elif world[x][y] == AIR:
+                world[x][y] = STONE
 
-    for _ in range(22):
+    # Fill tiny holes near the surface so the land feels continuous.
+    for x in range(1, WORLD_W - 1):
+        top = surface[x]
+        for y in range(max(1, top - 3), min(WORLD_H - 1, top + 4)):
+            if world[x][y] == AIR:
+                solid_neighbors = sum(1 for nx, ny in ((x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)) if world[nx][ny] != AIR)
+                if solid_neighbors >= 3:
+                    world[x][y] = DIRT if y > top else GRASS
+
+    for x in range(2, WORLD_W - 2):
+        if rnd.random() < 0.04:
+            depth = rnd.randint(2, 5)
+            for y in range(surface[x] + depth, WORLD_H):
+                if y > surface[x] + 6:
+                    if y < WORLD_H - 18 or rnd.random() > 0.7:
+                        world[x][y] = AIR
+
+    for _ in range(18):
         cx = rnd.randint(10, WORLD_W - 11)
-        cy = rnd.randint(28, WORLD_H - 18)
-        radius = rnd.randint(4, 10)
-        carve_cave(world, cx, cy, radius, rnd.randint(24, 48))
+        cy = rnd.randint(32, WORLD_H - 18)
+        radius = rnd.randint(4, 9)
+        carve_cave(world, cx, cy, radius, rnd.randint(20, 40))
 
     for _ in range(260):
         x = rnd.randint(4, WORLD_W - 5)
@@ -311,8 +339,8 @@ def new_world():
             elif roll < 0.105:
                 world[x][y] = GOLD_ORE
 
-    place_liquid_pool(world, rnd, WATER, count=6, min_y=24, max_y=WORLD_H - 14, min_distance=16)
-    place_liquid_pool(world, rnd, LAVA, count=5, min_y=WORLD_H // 2 + 4, max_y=WORLD_H - 10, min_distance=18)
+    place_liquid_pool(world, rnd, WATER, count=5, min_y=24, max_y=WORLD_H - 16, min_distance=18)
+    place_liquid_pool(world, rnd, LAVA, count=4, min_y=WORLD_H // 2 + 6, max_y=WORLD_H - 10, min_distance=20)
 
     # Keep liquids from touching each other by carving a small neutral buffer around them.
     for x in range(1, WORLD_W - 1):
@@ -333,14 +361,21 @@ def new_world():
     for _ in range(10):
         x = rnd.randint(8, WORLD_W - 9)
         y = surface[x]
-        if world[x][y] in (GRASS, SAND) and rnd.random() < 0.35:
-            world[x][y - 1] = CHEST
+        if y >= 3 and world[x][y] in (GRASS, SAND):
+            if world[x][y - 1] == AIR and world[x][y - 2] != AIR and rnd.random() < 0.28:
+                world[x][y - 1] = CHEST
 
-    for _ in range(22):
+    for _ in range(18):
         x = rnd.randint(8, WORLD_W - 9)
-        if 0 < surface[x] < WORLD_H - 8 and rnd.random() < 0.5:
+        if 2 < surface[x] < WORLD_H - 8 and rnd.random() < 0.45:
             top = surface[x]
             trunk_h = rnd.randint(4, 7)
+            if all(world[x][top - i] == AIR for i in range(1, trunk_h + 1)):
+                base_y = top
+                for dy in range(1, 3):
+                    if top + dy < WORLD_H and world[x][top + dy] == AIR:
+                        world[x][top + dy] = DIRT if dy == 1 else STONE
+                world[x][top] = GRASS if world[x][top] == AIR else world[x][top]
             for i in range(1, trunk_h + 1):
                 if top - i >= 0:
                     world[x][top - i] = WOOD
@@ -356,11 +391,27 @@ def new_world():
     for _ in range(5):
         x = rnd.randint(6, WORLD_W - 7)
         y = surface[x]
-        if rnd.random() < 0.4 and y + 1 < WORLD_H:
+        if rnd.random() < 0.4 and y + 1 < WORLD_H and world[x][y] != AIR:
             world[x][y + 1] = SAND
             for dy in range(2, 6):
                 if y + dy < WORLD_H and world[x][y + dy] == DIRT:
                     world[x][y + dy] = SAND
+
+    # Restore any accidental floating tree leaves or trunks by attaching to solid ground.
+    for x in range(1, WORLD_W - 1):
+        top = surface[x]
+        if world[x][top] == AIR:
+            world[x][top] = GRASS if x < WORLD_W * 0.7 else SAND
+        if world[x][top] in (GRASS, SAND):
+            for y in range(top - 1, max(0, top - 8), -1):
+                if world[x][y] == WOOD:
+                    continue
+                if world[x][y] == LEAF and y > top - 8:
+                    continue
+        # Seal isolated one-tile cavities just above the surface.
+        for y in range(max(1, top - 2), min(WORLD_H - 1, top + 2)):
+            if world[x][y] == AIR and world[x][y + 1] != AIR and world[x][y - 1] != AIR:
+                world[x][y] = DIRT if y > top else GRASS
 
     return world, surface
 
