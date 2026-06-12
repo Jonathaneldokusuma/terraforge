@@ -274,10 +274,16 @@ def new_world():
     surface = []
     h = WORLD_H // 2 + 8
     for x in range(WORLD_W):
-        h += rnd.choice([-1, 0, 0, 0, 1, 1]) if x else 0
+        profile = terrain_profile_for_x(x)
+        if x == 0:
+            h = profile["base"] + rnd.randint(-profile["amp"], profile["amp"])
+        else:
+            h += rnd.choice(profile["step_choices"])
+            target = profile["base"] + rnd.randint(-profile["amp"], profile["amp"])
+            h = int(h * 0.7 + target * 0.3)
         h = max(18, min(WORLD_H - 16, h))
         surface.append(h)
-        biome = "forest" if x < WORLD_W * 0.4 else "desert" if x < WORLD_W * 0.7 else "mountain"
+        biome = profile["biome"]
         for y in range(h, WORLD_H):
             if y == h:
                 world[x][y] = SAND if biome == "desert" else GRASS
@@ -289,17 +295,52 @@ def new_world():
     # Smooth abrupt height spikes so the land doesn't look torn apart.
     smoothed = surface[:]
     for x in range(1, WORLD_W - 1):
+        profile = terrain_profile_for_x(x)
         local = (surface[x - 1] + surface[x] + surface[x + 1]) // 3
+        local = int(local * 0.55 + (profile["base"] + rnd.randint(-profile["amp"], profile["amp"])) * 0.45)
+        if profile["biome"] == "mountain":
+            local -= rnd.randint(0, 4)
         smoothed[x] = max(18, min(WORLD_H - 16, local))
     for x in range(WORLD_W):
         surface[x] = smoothed[x]
-        biome = "forest" if x < WORLD_W * 0.4 else "desert" if x < WORLD_W * 0.7 else "mountain"
+        profile = terrain_profile_for_x(x)
+        biome = profile["biome"]
         for y in range(0, surface[x]):
             world[x][y] = AIR
         for y in range(surface[x], WORLD_H):
             if y == surface[x]:
                 world[x][y] = SAND if biome == "desert" else GRASS
-            elif y < surface[x] + 4:
+            elif y < surface[x] + profile["fill_depth"]:
+                world[x][y] = SAND if biome == "desert" else DIRT
+            elif world[x][y] == AIR:
+                world[x][y] = STONE
+
+    # Create a few broader hills and mountain shoulders for more world variety.
+    for x in range(3, WORLD_W - 3):
+        profile = terrain_profile_for_x(x)
+        if profile["biome"] == "mountain" and rnd.random() < 0.18:
+            bump = rnd.randint(1, 3)
+            for dx in range(-2, 3):
+                idx = x + dx
+                if 0 <= idx < WORLD_W:
+                    surface[idx] = max(18, min(WORLD_H - 16, surface[idx] - bump + abs(dx)))
+        elif profile["biome"] == "forest" and rnd.random() < 0.10:
+            dip = rnd.randint(1, 2)
+            for dx in range(-1, 2):
+                idx = x + dx
+                if 0 <= idx < WORLD_W:
+                    surface[idx] = max(18, min(WORLD_H - 16, surface[idx] + dip - abs(dx)))
+
+    for x in range(WORLD_W):
+        profile = terrain_profile_for_x(x)
+        biome = profile["biome"]
+        top = surface[x]
+        for y in range(0, top):
+            world[x][y] = AIR
+        for y in range(top, WORLD_H):
+            if y == top:
+                world[x][y] = SAND if biome == "desert" else GRASS
+            elif y < top + profile["fill_depth"]:
                 world[x][y] = SAND if biome == "desert" else DIRT
             elif world[x][y] == AIR:
                 world[x][y] = STONE
@@ -367,7 +408,8 @@ def new_world():
 
     for _ in range(18):
         x = rnd.randint(8, WORLD_W - 9)
-        if 2 < surface[x] < WORLD_H - 8 and rnd.random() < 0.45:
+        profile = terrain_profile_for_x(x)
+        if profile["biome"] != "desert" and 2 < surface[x] < WORLD_H - 8 and rnd.random() < 0.45:
             top = surface[x]
             trunk_h = rnd.randint(4, 7)
             if can_place_tree(world, x, top, trunk_h):
@@ -394,7 +436,7 @@ def new_world():
     # Restore any accidental floating tree leaves or trunks by attaching to solid ground.
     for x in range(1, WORLD_W - 1):
         top = surface[x]
-        biome = "forest" if x < WORLD_W * 0.4 else "desert" if x < WORLD_W * 0.7 else "mountain"
+        biome = terrain_profile_for_x(x)["biome"]
         top_block = SAND if biome == "desert" else GRASS
         sub_block = SAND if biome == "desert" else DIRT
         if top + 1 < WORLD_H and world[x][top] in (WOOD, LEAF):
@@ -511,6 +553,36 @@ def can_place_tree(world, x, top, trunk_h):
         if ty < 0 or world[x][ty] != AIR:
             return False
     return True
+
+
+def terrain_profile_for_x(x):
+    ratio = x / max(1, WORLD_W - 1)
+    if ratio < 0.4:
+        return {
+            "biome": "forest",
+            "base": WORLD_H // 2 + 7,
+            "amp": 4,
+            "step_choices": [-2, -1, -1, 0, 0, 1, 1, 2],
+            "cliff_chance": 0.02,
+            "fill_depth": 4,
+        }
+    if ratio < 0.7:
+        return {
+            "biome": "desert",
+            "base": WORLD_H // 2 + 4,
+            "amp": 3,
+            "step_choices": [-1, 0, 0, 0, 1, 1],
+            "cliff_chance": 0.015,
+            "fill_depth": 3,
+        }
+    return {
+        "biome": "mountain",
+        "base": WORLD_H // 2 - 2,
+        "amp": 10,
+        "step_choices": [-3, -2, -1, 0, 0, 1, 2, 3],
+        "cliff_chance": 0.06,
+        "fill_depth": 5,
+    }
 
 
 def spawn_enemies(world, surface):
