@@ -1184,10 +1184,13 @@ def main():
                     inventory_open = not inventory_open
                 elif event.key == pygame.K_u:
                     use_inventory_item(player, player.selected)
+                elif event.key == pygame.K_o:
+                    player.inventory = compact_inventory(dict(sorted(player.inventory.items(), key=lambda kv: (kv[0] >= 100, kv[0]))))
             elif event.type == pygame.MOUSEWHEEL and craft_panel_open:
                 craft_scroll = max(0, min(max(0, len(RECIPES) - 6), craft_scroll - event.y))
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button == 1:
+                    shift_down = bool(pygame.key.get_mods() & pygame.KMOD_SHIFT)
                     if craft_panel_open:
                         panel_x = WIDTH - 360
                         panel_y = 120
@@ -1217,6 +1220,10 @@ def main():
                                     drag_item = chest_items[idx]
                                     drag_from = "chest"
                                     drag_slot_index = idx
+                                    if shift_down:
+                                        transfer_inventory(chest, player.inventory, drag_item, chest.get(drag_item, 0))
+                                        drag_item = None
+                                        drag_from = None
                 elif event.button == 3 and chest_panel_open and chest_target:
                     tx, ty = chest_target
                     chest = chest_inventory(chest_storage, tx, ty)
@@ -1684,6 +1691,11 @@ def main():
             else:
                 attack_rect = pygame.Rect(px + (player.w if player.facing == 1 else -42), py + 6, 42, player.h - 12)
                 pygame.draw.rect(screen, (255, 225, 120), attack_rect, 2)
+
+        boss_alive = next((e for e in enemies if e.health > 0 and e.boss), None)
+        if boss_alive is not None:
+            phase_label = "BOSS PHASE 3" if boss_alive.kind == "slime_king" and boss_alive.health < 100 else "BOSS PHASE 2" if boss_alive.kind == "slime_king" and boss_alive.health < 170 else "BOSS BATTLE"
+            draw_text(screen, big, phase_label, WIDTH // 2 - 120, 58, (255, 210, 120))
 
         pygame.draw.rect(screen, (20, 20, 20), (18, 18, 240, 20), border_radius=6)
         pygame.draw.rect(screen, (200, 60, 60), (18, 18, 240 * max(0, player.health) / 100, 20), border_radius=6)
