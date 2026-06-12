@@ -1145,6 +1145,17 @@ def chest_inventory(chest_storage, tx, ty):
     return chest_storage[key]
 
 
+def fresh_world_state():
+    globals()["WORLD_SEED"] = random.randint(0, 9999999)
+    world, surface = new_world()
+    player = Player(12 * TILE, 10 * TILE)
+    enemies = spawn_enemies(world, surface)
+    drops = []
+    chest_storage = {}
+    time_of_day = 0.0
+    return world, surface, player, enemies, drops, chest_storage, time_of_day
+
+
 def main():
     pygame.init()
     pygame.display.set_caption("TerraForge")
@@ -1184,12 +1195,7 @@ def main():
         world, surface, player, enemies, drops, time_of_day, chest_storage, loaded_seed = loaded
         globals()["WORLD_SEED"] = loaded_seed
     else:
-        world, surface = new_world()
-        player = Player(12 * TILE, 10 * TILE)
-        enemies = spawn_enemies(world, surface)
-        drops = []
-        chest_storage = {}
-        time_of_day = 0.0
+        world, surface, player, enemies, drops, chest_storage, time_of_day = fresh_world_state()
 
     camera_x = 0.0
     camera_y = 0.0
@@ -1241,12 +1247,9 @@ def main():
                     if loaded:
                         world, surface, player, enemies, drops, time_of_day, chest_storage = loaded
                 elif event.key == pygame.K_r:
-                    world, surface = new_world()
-                    player = Player(12 * TILE, 10 * TILE)
-                    enemies = spawn_enemies(world, surface)
-                    drops = []
-                    chest_storage = {}
-                    time_of_day = 0.0
+                    world, surface, player, enemies, drops, chest_storage, time_of_day = fresh_world_state()
+                elif event.key == pygame.K_n:
+                    world, surface, player, enemies, drops, chest_storage, time_of_day = fresh_world_state()
                 elif event.key in (pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4, pygame.K_5, pygame.K_6, pygame.K_7):
                     idx = event.key - pygame.K_1
                     if idx < len(selected_order):
